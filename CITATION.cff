@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+title: "archscope: publication-quality figures of model architectures and training methods"
+message: "If you use archscope in academic work, please cite it using this metadata."
+type: software
+authors:
+  - given-names: Haozhe
+    family-names: Zhang
+    email: zhang.hz6666@gmail.com
+repository-code: "https://github.com/HaozheZhang6/archscope"
+license: MIT
+version: 0.1.0
+date-released: 2026-06-12

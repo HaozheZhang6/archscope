@@ -1,5 +1,8 @@
 # archscope
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
+
 **Publication-quality, hierarchical figures of model architectures and training methods —
 built for the workflow: *an agent reads the code, then draws the figures*.**
 
@@ -35,8 +38,6 @@ d.chain(["inp", "ln", "mlp", "add", "out"], labels=[None, "(B, T, 768)", None, N
 Concepts the reader already knows (*"I know what attention is"*) collapse into a
 ✓-chip instead of being expanded — decomposition depth is a per-reader choice.
 
-<p align="center"><img src="out/examples/training_methods.svg" width="780" alt="GPT vs BERT training storyboards"></p>
-
 ## Install & run
 
 ```bash
@@ -44,12 +45,39 @@ pip install -e .            # only dependency: matplotlib
 brew install resvg          # optional: PNG export (SVG always works)
 
 python examples/quickstart.py          # ~40-line API tour
-python examples/transformer_block.py   # card-stacked ×12 layer, residual rails
-python examples/training_methods.py    # GPT next-token vs BERT masked-LM
 ```
 
 Outputs land in `out/` as self-contained SVG (fonts as text, math as outlined paths —
-survives every converter) plus 4× PNG.
+survives every converter) plus 4× PNG. Full index: [`examples/`](examples/README.md).
+
+## Gallery
+
+<table>
+<tr>
+<td width="50%" valign="top">
+<a href="examples/qwen3_block.py"><img src="out/examples/qwen3_block.svg" alt="Qwen3 decoder layer"></a>
+<sub><b>Qwen3 decoder layer, as implemented</b> — fused GQA shapes, per-head QK-RMSNorm,
+two-branch SwiGLU; every box cites <code>nano-vllm</code> <code>file:line</code>.</sub>
+</td>
+<td width="50%" valign="top">
+<a href="examples/training_methods.py"><img src="out/examples/training_methods.svg" alt="GPT vs BERT training storyboards"></a>
+<sub><b>Training objectives as storyboards</b> — GPT next-token vs BERT masked-LM; the
+attention-mask grids are computed from the rule (<code>j ≤ i</code>), never hand-drawn.</sub>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<a href="examples/flow_matching.py"><img src="out/examples/flow_matching.svg" alt="Flow matching storyboard"></a>
+<sub><b>Flow matching (rectified flow)</b> — the SD3/FLUX/Wan objective: one straight path,
+regress its velocity, integrate it back.</sub>
+</td>
+<td width="50%" valign="top">
+<a href="examples/lingbot_va/"><img src="out/lingbot_va/fig03_block.svg" alt="LingBot-VA DiT block"></a>
+<sub><b>Case study: LingBot-VA</b> — 8 figures from an agent reading real code; per-token
+AdaLN block shown here. Full gallery: <a href="out/lingbot_va/README.md">out/lingbot_va</a>.</sub>
+</td>
+</tr>
+</table>
 
 ## Case study: LingBot-VA
 
@@ -86,10 +114,21 @@ config lists.
 
 ## Status & roadmap
 
-Early but used in anger (the two figure sets in this repo are real work products).
-Planned: parameterized training-method templates (diffusion/flow-matching panels),
+Early but used in anger (the LingBot-VA set is a real work product, and the library
+is exercised daily by a coding agent). Planned: an MoE / multi-modal example set,
 an optional torch tracer for shape cross-checks, a JSON spec layer once the grammar
 stabilizes, PDF export. Issues and PRs welcome.
+
+## Citation
+
+```bibtex
+@software{archscope,
+  author = {Zhang, Haozhe},
+  title  = {archscope: publication-quality figures of model architectures and training methods},
+  url    = {https://github.com/HaozheZhang6/archscope},
+  year   = {2026}
+}
+```
 
 ## License
 
