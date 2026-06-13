@@ -107,17 +107,22 @@ class GroupFrame(Element):
     """Titled rounded container around a child element."""
 
     def __init__(self, child, title=None, id=None, pad=16, dashed=True,
-                 tint=None, stroke=None, title_color=None, pad_top=None):
+                 tint=None, stroke=None, title_color=None, pad_top=None,
+                 title_pos="inline"):
         self.child, self.title, self.id = child, title, id
         self.pad, self.dashed = pad, dashed
         self.tint = tint if tint is not None else "rgba(148,163,184,0.055)"
         self.stroke = stroke or style.FAINT
         self.title_color = title_color or style.MUTED
         self.pad_top = pad_top
+        # title_pos: "inline" (title eats vertical space at the top) | "tag"
+        # (a pill straddling the top-left border — paper "zone" style, no
+        # vertical cost, content fills the whole frame).
+        self.title_pos = title_pos
 
     def measure(self):
         cw, ch = self.child.measure()
-        self.th = 21 if self.title else 0
+        self.th = 21 if (self.title and self.title_pos == "inline") else 0
         self.w = cw + 2 * self.pad
         self.h = ch + 2 * self.pad + self.th
         if self.pad_top is not None:
@@ -127,10 +132,16 @@ class GroupFrame(Element):
     def render(self, d, x, y):
         d.doc.rect("frames", x, y, self.w, self.h, self.tint, self.stroke,
                    1.2, rx=10, dash="6 4" if self.dashed else None)
-        if self.title:
+        if self.title and self.title_pos == "inline":
             d.doc.text("frames", x + 13, y + 16.5, self.title,
                        style.T_SUB + 1.5, self.title_color, "600",
                        anchor="start")
+        elif self.title and self.title_pos == "tag":
+            tw = measure(self.title, style.T_SUB + 1, "600")[0] + 16
+            d.doc.rect("labels", x + 14, y - 10, tw, 19, "#FFFFFF",
+                       self.stroke, 1.1, rx=4)
+            d.doc.text("labels", x + 14 + tw / 2, y + 3.4, self.title,
+                       style.T_SUB + 1, self.title_color, "600")
         top = self.pad_top if self.pad_top is not None else self.pad
         self.child.render(d, x + (self.w - self.child.w) / 2, y + self.th + top)
         return self._reg(d, x, y)

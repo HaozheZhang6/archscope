@@ -4,12 +4,12 @@ from .containers import Free, GroupFrame, HStack, RepeatFrame, RepeatStack, VSta
 from .diagram import Diagram
 from .geom import Box
 from .node import (Block, Element, Formula, IOLabel, KnownChip, OpDot, Spacer,
-                   TextLabel)
+                   TextLabel, VAEShape)
 from .panels import MaskGrid, Swatches, TokenRow
 
 __all__ = [
     "Block", "Box", "Diagram", "Element", "Formula", "Free", "GroupFrame",
     "HStack", "IOLabel", "KnownChip", "MaskGrid", "OpDot", "RepeatFrame",
-    "RepeatStack", "Spacer", "Swatches", "TextLabel", "TokenRow", "VStack",
-    "style",
+    "RepeatStack", "Spacer", "Swatches", "TextLabel", "TokenRow", "VAEShape",
+    "VStack", "style",
 ]

@@ -117,6 +117,29 @@ class Diagram:
         for s, t, lab in zip(ids, ids[1:], labels):
             self.edge(s, t, label=lab, **kw)
 
+    def loop_arc(self, box_id, side="r", label="×T", out=34, color=None,
+                 frac=(0.18, 0.82)):
+        """A feedback arc around `box_id` (the LDM 'denoising ×T' loop): exits one
+        side near the top, runs along the side, re-enters near the bottom with an
+        arrowhead. `frac` = (exit, enter) positions along the side."""
+        color = color or style.EDGE["main"]["stroke"]
+        b = self.anchors[box_id]
+        if side in "rl":
+            xedge = b.x2 if side == "r" else b.x
+            rail = xedge + (out if side == "r" else -out)
+            a = (xedge, b.y + b.h * frac[0])
+            z = (xedge, b.y + b.h * frac[1])
+            via = [(rail, a[1]), (rail, z[1])]
+        else:
+            yedge = b.y if side == "t" else b.y2
+            rail = yedge + (-out if side == "t" else out)
+            a = (b.x + b.w * frac[0], yedge)
+            z = (b.x + b.w * frac[1], yedge)
+            via = [(a[0], rail), (z[0], rail)]
+        draw_edge(self.doc, a, z, via=via, color=color, width=1.4,
+                  arrow=True, label=label, label_side="right",
+                  label_size=style.T_SUB + 1)
+
     # --- annotations -----------------------------------------------------------
     def note(self, x, y, text_, size=style.T_NOTE, color=style.MUTED,
              anchor="start", max_w=None, mono=False, weight="normal"):

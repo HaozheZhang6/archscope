@@ -135,6 +135,68 @@ class IOLabel(Element):
         return self._reg(d, x, y)
 
 
+class VAEShape(Element):
+    """Trapezoid for an encoder/decoder (VAE, tokenizer). The signature LDM/SD
+    idiom: the encoder narrows in the flow direction, the decoder widens.
+
+    role: 'enc' (narrows toward flow) | 'dec' (widens toward flow).
+    flow: 'r' (left→right) | 'l' | 'u' (bottom→top) | 'd'. The wide face is the
+    input side; the narrow face the output (latent) side for an encoder.
+    """
+
+    def __init__(self, label, role="enc", flow="r", id=None, sub=None,
+                 w=72, h=70, narrow=0.5, kind="vae", badge=None):
+        self.label, self.role, self.flow = label, role, flow
+        self.id, self.sub, self.badge = id or None, sub, badge
+        self._w, self._h, self.narrow, self.kind = w, h, narrow, kind
+
+    def measure(self):
+        lw = measure(self.label, style.T_LABEL, "500")[0]
+        if self.flow in "ud":
+            self.w = max(self._w, lw + 22)
+            self.h = self._h
+        else:
+            self.w = self._w
+            self.h = max(self._h, lw + 22)
+        return self.w, self.h
+
+    def render(self, d, x, y):
+        fill, stroke, tc = style.KIND[self.kind]
+        w, h, n = self.w, self.h, self.narrow
+        # which face is narrow: encoder narrows toward the flow direction
+        narrow_face = self.flow if self.role == "enc" else \
+            {"r": "l", "l": "r", "u": "d", "d": "u"}[self.flow]
+        if narrow_face == "r":
+            pts = [(x, y), (x + w, y + h * (1 - n) / 2), (x + w, y + h * (1 + n) / 2), (x, y + h)]
+        elif narrow_face == "l":
+            pts = [(x + w, y), (x + w, y + h), (x, y + h * (1 + n) / 2), (x, y + h * (1 - n) / 2)]
+        elif narrow_face == "u":
+            pts = [(x, y + h), (x + w * (1 - n) / 2, y), (x + w * (1 + n) / 2, y), (x + w, y + h)]
+        else:  # narrow at bottom
+            pts = [(x, y), (x + w, y), (x + w * (1 + n) / 2, y + h), (x + w * (1 - n) / 2, y + h)]
+        dpath = "M " + " L ".join(f"{px:.1f},{py:.1f}" for px, py in pts) + " Z"
+        d.doc.path("nodes", dpath, stroke=stroke, sw=1.4, fill=fill,
+                   bbox=(x, y, w, h))
+        rot = -90 if self.flow in "rl" else 0
+        cx, cy = x + w / 2, y + h / 2
+        if rot:
+            d.doc.raw("nodes",
+                      f'<text x="{cx:.1f}" y="{cy:.1f}" font-family="{style.FONT_SANS}" '
+                      f'font-size="{style.T_LABEL}px" fill="{tc}" font-weight="500" '
+                      f'text-anchor="middle" transform="rotate({rot} {cx:.1f} {cy:.1f})">'
+                      f'{self.label}</text>')
+        else:
+            d.doc.text("nodes", cx, cy + style.T_LABEL * 0.34, self.label,
+                       style.T_LABEL, tc, "500")
+        if self.badge:
+            bw = measure(self.badge, style.T_TINY, "500")[0] + 10
+            d.doc.rect("labels", x + w - bw - 2, y + 2, bw, 13, "#FFFFFF",
+                       stroke, 0.9, rx=6.5, opacity=0.92)
+            d.doc.text("labels", x + w - bw / 2 - 2, y + 11.4, self.badge,
+                       style.T_TINY, tc, "500")
+        return self._reg(d, x, y)
+
+
 class KnownChip(Element):
     """Collapsed 'user already knows this' concept: check + name + pointer."""
 
