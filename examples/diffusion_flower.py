@@ -54,9 +54,11 @@ d.edge((lb.x2, TY + IM + 34), (fb.x, TY + IM + 34), color="#16A34A", width=1.6,
 BY = TY + IM + 110
 xt = RasterImage(F(4), 96, id="xt", rx=6, outline="#B91C1C")
 d.place(xt, 110, BY)
-d.note(d.box("xt").cx, BY - 14, "IN: noised x_t", size=style.T_SUB + 0.5, color=style.INK,
+d.note(d.box("xt").cx, BY - 26, "IN: noised x_t", size=style.T_SUB + 0.5, color=style.INK,
        anchor="middle", weight="600")
-d.note(d.box("xt").cx, d.box("xt").y2 + 15, "+ timestep t", size=style.T_SUB,
+d.note(d.box("xt").cx, BY - 13, "= (1-sigma_t) x_0 + sigma_t . eps", size=style.T_TINY + 1,
+       color=style.FAINT, anchor="middle", mono=True)
+d.note(d.box("xt").cx, d.box("xt").y2 + 15, "+ timestep t   (sigma_t = 0.8)", size=style.T_SUB,
        color=style.MUTED, anchor="middle")
 
 model = Block("denoiser  e_theta  (DiT / U-Net)", kind="model",
@@ -67,17 +69,21 @@ d.edge("xt", "model", label="x_t + t")
 eps = RasterImage(str(DIFF / "noise.png"), 96, id="eps", rx=6, outline="#7C3AED")
 d.place(eps, d.box("model").x2 + 56, BY)
 d.edge("model", "eps")
-d.note(d.box("eps").cx, BY - 14, "OUT: predicted noise  e_theta", size=style.T_SUB + 0.5,
+d.note(d.box("eps").cx, BY - 26, "OUT: predicted noise  e_theta", size=style.T_SUB + 0.5,
        color="#6D28D9", anchor="middle", weight="600")
+d.note(d.box("eps").cx, BY - 13, "(or x_0, or v — same target, see prediction_targets)",
+       size=style.T_TINY + 1, color="#6D28D9", anchor="middle")
 d.note(d.box("eps").cx, d.box("eps").y2 + 15, "same shape as x_t", size=style.T_SUB,
        color="#6D28D9", anchor="middle")
 
 xtm = RasterImage(F(3), 96, id="xtm", rx=6, outline="#16A34A")
 d.place(xtm, d.box("eps").x2 + 70, BY)
-d.edge("eps", "xtm", label="subtract a step")
-d.note(d.box("xtm").cx, BY - 14, "x_{t-1}  (a bit cleaner)", size=style.T_SUB + 0.5,
+d.edge("eps", "xtm", label="remove one step of noise")
+d.note(d.box("xtm").cx, BY - 26, "x_{t-1}  (less noise)", size=style.T_SUB + 0.5,
        color="#166534", anchor="middle", weight="600")
-upd = Formula(r"$x_{t-1}=x_t-\mathrm{step}\cdot e_\theta(x_t,t)$", size=12.5)
+d.note(d.box("xtm").cx, BY - 13, "sigma_{t-1} = 0.6  <  sigma_t", size=style.T_TINY + 1,
+       color="#166534", anchor="middle", mono=True)
+upd = Formula(r"$x_{t-1}=x_t-(\sigma_t-\sigma_{t-1})\,\hat{\epsilon}_\theta(x_t,t)$", size=12)
 upd.measure()
 d.place(upd, d.box("xtm").cx - upd.w / 2, d.box("xtm").y2 + 14)
 
