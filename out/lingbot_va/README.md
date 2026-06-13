@@ -22,10 +22,11 @@ annotated with a `wan_va/` `file:line`; every "paper" claim with its §/page. Sc
 | ![fig06](fig06_mot_paper.svg) | **fig 6 · MoT block as the PAPER describes it** — dual streams with separate QKV/FFN/norms; action tokens up-project 768→3072 for joint attention, return via residual | paper §3.3 |
 | ![fig07](fig07_paper_vs_code.svg) | **fig 7 · paper vs code** — the difference table + fossil evidence (`_keep_in_fp32_modules` still lists `action_norm1/2/3` etc., modules absent from the shipped block); the release matches the paper's "Share Weights" ablation | both |
 | ![fig08](fig08_training.svg) | **fig 8 · training method** — flow matching, independent per-frame timesteps, teacher forcing + noisy-history augmentation (p=0.5 ⇒ video only denoised to s≈0.6 at inference), losses | `train.py` / `scheduler.py` |
+| ![fig09](fig09_model_structure.svg) | **fig 9 · model structure, paper vs repo** — side-by-side of the *module structure*: paper §3.3 dual-stream MoT (per-modality weights, 3072/768) vs the real `model.py` module tree (one shared 3072-d backbone; split only at 2 embedders + 2 condition embedders + 2 heads; mask routing). The structural version of fig 7 | paper §3.3 + `model.py` |
 
 Suggested reading order: fig 1 (where things live) → fig 2 (dataflow) → fig 3 (the
 block) → fig 4 (attention details) → fig 5 (the mask as glue) → fig 8 (training) →
-fig 6 + 7 (what the paper says vs what the code does).
+fig 6 + 7 + 9 (what the paper says vs what the code does — fig 9 is the module-tree view).
 
 Known internal inconsistencies in the paper (figures use the implementation-side
 values): partial-denoise endpoint s=0.5 (§3.3/Alg. 1) vs s=0.6 (p. 10); chunk range
