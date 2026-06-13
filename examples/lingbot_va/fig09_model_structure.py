@@ -136,6 +136,10 @@ d.note(xq, y0 + 26 + len(rows) * 20 + 10,
        "text_norm1/2/3, scale_shift_table_action — modules that do NOT exist in the shipped block. The "
        "released code matches the paper's own \"Share Weights\" ablation, not the headline dual-stream MoT.",
        size=style.T_SUB + 1, color="#9F1239", max_w=1080)
+d.note(xq, y0 + 26 + len(rows) * 20 + 40,
+       "NOTE: this figure compares WEIGHT-SHARING only. Both sides are DiT blocks in an AR-diffusion world "
+       "model (noised latent in, flow-matching velocity out, timestep -> AdaLN, interleaved causal chunks). "
+       "fig 10 shows that generative mechanism.", size=style.T_SUB + 1, color=style.INK, max_w=1080)
 
 leg = Swatches([("video", "video weights"), ("action", "action weights"),
                 ("attention", "attention"), ("ffn", "FFN"), ("linear", "embed"),
