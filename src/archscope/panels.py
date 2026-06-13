@@ -34,6 +34,10 @@ class TokenRow(Element):
         for c in self.cells:
             w = c.get("w", self.cw)
             fill, stroke, tc = style.MODALITY[c.get("modality", "none")]
+            # explicit per-cell color override (e.g. image-patch tokens)
+            fill = c.get("fill", fill)
+            stroke = c.get("stroke", stroke)
+            tc = c.get("tcolor", tc)
             f = (f'url(#{d.doc.hatch(fill, stroke)})' if c.get("hatch")
                  else fill)
             d.doc.rect("nodes", cx, y, w, self.ch, f, stroke,
@@ -46,6 +50,35 @@ class TokenRow(Element):
                 d.doc.text("nodes", cx + w / 2, y + self.ch + 11, c["sub"],
                            style.T_TINY, style.FAINT, mono=True)
             cx += w + self.gap + c.get("gap_after", 0)
+        return self._reg(d, x, y)
+
+
+class PatchGrid(Element):
+    """An image drawn as a grid of colored patch-cells — the 'an image is a
+    sequence of patch tokens' idiom. `cells` is a 2D list of fill colors (hex)
+    or None (= background). Flatten in raster order to get the token sequence."""
+
+    def __init__(self, cells, cell=18, gap=1.5, id=None, bg="#F8FAFC",
+                 stroke="#FFFFFF", outline=None):
+        self.cells, self.cell, self.gap = cells, cell, gap
+        self.id, self.bg, self.stroke, self.outline = id, bg, stroke, outline
+
+    def measure(self):
+        rows = len(self.cells)
+        cols = max(len(r) for r in self.cells)
+        self.w = cols * (self.cell + self.gap) - self.gap
+        self.h = rows * (self.cell + self.gap) - self.gap
+        return self.w, self.h
+
+    def render(self, d, x, y):
+        p = self.cell + self.gap
+        if self.outline:
+            d.doc.rect("frames", x - 3, y - 3, self.w + 6, self.h + 6,
+                       "none", self.outline, 1.2, rx=4)
+        for r, row in enumerate(self.cells):
+            for c, col in enumerate(row):
+                d.doc.rect("nodes", x + c * p, y + r * p, self.cell, self.cell,
+                           col or self.bg, self.stroke, 0.8, rx=2)
         return self._reg(d, x, y)
 
 

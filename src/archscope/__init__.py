@@ -5,11 +5,11 @@ from .diagram import Diagram
 from .geom import Box
 from .node import (Block, Element, Formula, IOLabel, KnownChip, OpDot, Spacer,
                    TextLabel, VAEShape)
-from .panels import MaskGrid, Swatches, TokenRow
+from .panels import MaskGrid, PatchGrid, Swatches, TokenRow
 
 __all__ = [
     "Block", "Box", "Diagram", "Element", "Formula", "Free", "GroupFrame",
     "HStack", "IOLabel", "KnownChip", "MaskGrid", "OpDot", "RepeatFrame",
-    "RepeatStack", "Spacer", "Swatches", "TextLabel", "TokenRow", "VAEShape",
-    "VStack", "style",
+    "PatchGrid", "RepeatStack", "Spacer", "Swatches", "TextLabel", "TokenRow",
+    "VAEShape", "VStack", "style",
 ]
