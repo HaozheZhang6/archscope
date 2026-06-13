@@ -38,10 +38,16 @@ class TokenRow(Element):
             fill = c.get("fill", fill)
             stroke = c.get("stroke", stroke)
             tc = c.get("tcolor", tc)
-            f = (f'url(#{d.doc.hatch(fill, stroke)})' if c.get("hatch")
-                 else fill)
-            d.doc.rect("nodes", cx, y, w, self.ch, f, stroke,
-                       1.8 if c.get("bold_border") else 1.1, rx=4.5)
+            if c.get("img"):
+                from .node import RasterImage
+                RasterImage.emit(d.doc, c["img"], cx, y, w, self.ch, rx=4.5)
+                d.doc.rect("nodes", cx, y, w, self.ch, "none", stroke,
+                           1.8 if c.get("bold_border") else 1.1, rx=4.5)
+            else:
+                f = (f'url(#{d.doc.hatch(fill, stroke)})' if c.get("hatch")
+                     else fill)
+                d.doc.rect("nodes", cx, y, w, self.ch, f, stroke,
+                           1.8 if c.get("bold_border") else 1.1, rx=4.5)
             if c.get("label"):
                 d.doc.text("nodes", cx + w / 2, y + self.ch / 2 + 3.4,
                            c["label"], style.T_SUB + 0.5, tc, "500",

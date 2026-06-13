@@ -1,7 +1,72 @@
 """Diagram elements: blocks, op glyphs, IO stadiums, known-concept chips."""
+import base64
+from pathlib import Path
+
 from . import style
 from .geom import Box
 from .text import measure
+
+_MIME = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+         ".gif": "image/gif", ".webp": "image/webp"}
+
+
+class Element:
+    """Measurable, renderable unit. Subclasses set self.w/self.h in measure()."""
+    id: str | None = None
+    w = 0.0
+    h = 0.0
+
+    def measure(self) -> tuple[float, float]:
+        raise NotImplementedError
+
+    def render(self, d, x, y):
+        """d is the Diagram. Must register anchors for id'd elements."""
+        raise NotImplementedError
+
+    def _reg(self, d, x, y):
+        box = Box(x, y, self.w, self.h)
+        if self.id:
+            d.anchors[self.id] = box
+        return box
+
+
+class RasterImage(Element):
+    """Embed a raster image (PNG/JPG) as a self-contained base64 data URI — for
+    figures that use real picture content (e.g. an image tokenized into patches).
+    Reads file bytes only; no image library needed at render time."""
+
+    def __init__(self, path, w, h=None, id=None, rx=0, outline=None, ow=1.4):
+        self.path, self._w, self._h = Path(path), w, (h or w)
+        self.id, self.rx, self.outline, self.ow = id or None, rx, outline, ow
+
+    def measure(self):
+        self.w, self.h = self._w, self._h
+        return self.w, self.h
+
+    @staticmethod
+    def emit(doc, path, x, y, w, h, rx=0, layer="nodes"):
+        """Write one base64 <image> into `layer`; shared by RasterImage and
+        any element that wants real picture content (e.g. TokenRow img cells)."""
+        path = Path(path)
+        data = base64.b64encode(path.read_bytes()).decode()
+        mime = _MIME.get(path.suffix.lower(), "image/png")
+        clip = ""
+        if rx:
+            cid = f"clip-{abs(hash((x, y, w, h, rx))) % (10**8)}"
+            doc.defs[cid] = (f'<clipPath id="{cid}"><rect x="{x:.1f}" y="{y:.1f}"'
+                             f' width="{w:.1f}" height="{h:.1f}" rx="{rx}"/></clipPath>')
+            clip = f' clip-path="url(#{cid})"'
+        doc.raw(layer,
+                f'<image x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" '
+                f'preserveAspectRatio="xMidYMid slice"{clip} '
+                f'href="data:{mime};base64,{data}"/>', bbox=(x, y, w, h))
+
+    def render(self, d, x, y):
+        RasterImage.emit(d.doc, self.path, x, y, self.w, self.h, self.rx)
+        if self.outline:
+            d.doc.rect("nodes", x, y, self.w, self.h, "none", self.outline,
+                       self.ow, rx=self.rx)
+        return self._reg(d, x, y)
 
 
 class Element:
