@@ -50,11 +50,83 @@ class Diagram:
         self.doc = SvgDoc()
         self.anchors: dict[str, Box] = {}
         self.title, self.subtitle = title, subtitle
+        # bookkeeping for the low-friction helpers (auto-legend / overlap warn)
+        self.placements: list[tuple[str, Box]] = []
+        self.used_kinds: list[str] = []      # order-preserving, de-duped on use
+        self.used_modalities: list[str] = []
+        self.used_edges: list[str] = []
+
+    def _seen(self, lst, v):
+        if v and v not in lst:
+            lst.append(v)
 
     # --- placement -----------------------------------------------------------
-    def place(self, el, x, y):
+    def place(self, el, x=None, y=None, right_of=None, left_of=None, above=None,
+              below=None, gap=44, ref_align=None):
+        """Absolute place(el, x, y) OR relative: place(el, right_of="enc", gap=80,
+        ref_align="cy"). Relative placement reads the reference box, so edits to
+        content keep the gap instead of drifting into overlap. ref_align picks the
+        edge to line up on: y/cy/y2 (for right_of/left_of) or x/cx/x2 (above/below)."""
         el.measure()
-        return el.render(self, x, y)
+        if x is None or y is None:
+            ref = right_of or left_of or above or below
+            r = self.anchors[ref]
+            if right_of:
+                x = r.x2 + gap
+                y = self._align_y(r, el, ref_align)
+            elif left_of:
+                x = r.x - gap - el.w
+                y = self._align_y(r, el, ref_align)
+            elif below:
+                y = r.y2 + gap
+                x = self._align_x(r, el, ref_align)
+            else:  # above
+                y = r.y - gap - el.h
+                x = self._align_x(r, el, ref_align)
+        box = el.render(self, x, y)
+        self.placements.append((getattr(el, "id", None) or type(el).__name__, box))
+        return box
+
+    @staticmethod
+    def _align_y(ref, el, a):
+        a = a or "cy"
+        return {"y": ref.y, "cy": ref.cy - el.h / 2, "y2": ref.y2 - el.h}[a]
+
+    @staticmethod
+    def _align_x(ref, el, a):
+        a = a or "cx"
+        return {"x": ref.x, "cx": ref.cx - el.w / 2, "x2": ref.x2 - el.w}[a]
+
+    _slug_n: dict = None
+
+    def _slug(self, s):
+        import re
+        base = re.sub(r"[^a-z0-9]+", "_", str(s).lower()).strip("_")[:18] or "n"
+        self._slug_n = self._slug_n or {}
+        self._slug_n[base] = self._slug_n.get(base, 0) + 1
+        return base if self._slug_n[base] == 1 else f"{base}{self._slug_n[base]}"
+
+    def flow(self, children, dir="up", connect=True, gap=22, align="center",
+             edge_style="main", id=None, **place_kw):
+        """One call = stack + place + auto-connect. ids are slugged from each
+        child's label (so you can reference them), consecutive nodes are chained
+        with perpendicular edges. dir: up/down (vertical) or right/left. The
+        returned stack carries an id (given or auto) so you can place the next
+        flow relative to it: d.flow([...], right_of=enc.id)."""
+        from .containers import HStack, VStack
+        for c in children:
+            if not getattr(c, "id", None):
+                c.id = self._slug(getattr(c, "label", None)
+                                  or getattr(c, "text", None) or type(c).__name__)
+        # children are written in DATAFLOW order (input first). For up/left the
+        # first item belongs at the bottom/right, so reverse for the stack.
+        kids = list(reversed(children)) if dir in ("up", "left") else list(children)
+        Stack = HStack if dir in ("right", "left") else VStack
+        stack = Stack(kids, gap=gap, align=align,
+                      connect=(dir if connect else None), edge_style=edge_style,
+                      id=id or self._slug("flow"))
+        self.place(stack, **place_kw)
+        return stack
 
     def box(self, id) -> Box:
         return self.anchors[id]
@@ -69,6 +141,7 @@ class Diagram:
         return None, (spec, None)
 
     def edge(self, src, dst, a_side=None, b_side=None, stub=14, frac=0.5, **kw):
+        self._seen(self.used_edges, kw.get("style_name", "main"))
         a, ainfo = self._pt(src)
         b, binfo = self._pt(dst)
         sa = a_side or (ainfo[1] if ainfo and ainfo[1] and ainfo[1] in "tblr"
@@ -148,6 +221,63 @@ class Diagram:
             self.doc.text("labels", x, y + i * size * 1.4, ln, size, color,
                           weight, anchor=anchor, mono=mono)
 
+    # --- low-friction helpers --------------------------------------------------
+    def auto_legend(self, x, y, max_w=720, edges=True, extra=None):
+        """Build a legend from the kinds / modalities / edge-styles actually used,
+        so you don't hand-list a Swatches every figure. `extra` appends manual
+        entries (e.g. a hatched note)."""
+        from .panels import Swatches
+        ent = []
+        for m in self.used_modalities:
+            if m and m != "none":
+                ent.append((m, style.MODALITY_NAMES.get(m, m) if hasattr(
+                    style, "MODALITY_NAMES") else m))
+        for k in self.used_kinds:
+            if k in style.KIND_NAMES:
+                ent.append((k, style.KIND_NAMES[k]))
+        if edges:
+            for e in self.used_edges:
+                if e in style.EDGE_NAMES:
+                    ent.append((e, style.EDGE_NAMES[e], "edge"))
+        ent += (extra or [])
+        leg = Swatches(ent, max_w=max_w, id="leg")
+        self.place(leg, x, y)
+        return leg
+
+    def check(self, pad=2.0, min_frac=0.08):
+        """Return [(id_a, id_b, overlap_frac), ...] for id'd boxes that PARTIALLY
+        overlap — so an agent can self-correct without ever opening the PNG.
+        Containment (a box inside its container) is ignored."""
+        items = list(self.anchors.items())
+        hits = []
+        for i in range(len(items)):
+            na, A = items[i]
+            for j in range(i + 1, len(items)):
+                nb, B = items[j]
+                ox = min(A.x2, B.x2) - max(A.x, B.x) - pad
+                oy = min(A.y2, B.y2) - max(A.y, B.y) - pad
+                if ox <= 0 or oy <= 0:
+                    continue
+                contained = ((A.x >= B.x and A.x2 <= B.x2 and A.y >= B.y and A.y2 <= B.y2)
+                             or (B.x >= A.x and B.x2 <= A.x2 and B.y >= A.y and B.y2 <= A.y2))
+                if contained:
+                    continue
+                frac = (ox * oy) / min(A.w * A.h, B.w * B.h)
+                if frac >= min_frac:
+                    hits.append((na, nb, round(frac, 2)))
+        return hits
+
+    def warn_overlaps(self, on_overlap="warn"):
+        hits = self.check()
+        if hits and on_overlap != "ignore":
+            msg = "archscope: %d overlapping box(es):\n" % len(hits) + "\n".join(
+                "  '%s' x '%s'  (%.0f%%)" % (a, b, f * 100) for a, b, f in hits)
+            if on_overlap == "raise":
+                raise ValueError(msg)
+            import sys
+            print(msg, file=sys.stderr)
+        return hits
+
     # --- output ----------------------------------------------------------------
     def _title_block(self):
         if not (self.title or self.subtitle):
@@ -164,7 +294,8 @@ class Diagram:
             self.doc.text("labels", x, y, self.title, style.T_TITLE,
                           style.INK, "600", anchor="start")
 
-    def save(self, path, png=True, zoom=2.0):
+    def save(self, path, png=True, zoom=2.0, on_overlap="warn"):
+        self.warn_overlaps(on_overlap)
         self._title_block()
         out = self.doc.save(path, png=png, zoom=zoom)
         return out

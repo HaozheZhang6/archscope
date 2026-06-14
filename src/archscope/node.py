@@ -111,6 +111,8 @@ class Block(Element):
         return self.w, self.h
 
     def render(self, d, x, y):
+        d._seen(d.used_kinds, self.kind)
+        d._seen(d.used_modalities, self.modality)
         fill, stroke, tc = style.KIND[self.kind]
         d.doc.rect("nodes", x, y, self.w, self.h, fill, stroke, 1.3, rx=7)
         if self.modality:
@@ -187,6 +189,7 @@ class IOLabel(Element):
         return self.w, self.h
 
     def render(self, d, x, y):
+        d._seen(d.used_modalities, self.modality)
         fill, stroke, tc = style.MODALITY.get(self.modality or "none",
                                               style.MODALITY["none"])
         if self.modality is None:

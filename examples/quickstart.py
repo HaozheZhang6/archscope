@@ -1,41 +1,39 @@
-"""archscope in ~40 lines: blocks, a stack, edges, a residual rail, a formula.
+"""archscope quickstart — a residual MLP block in a handful of lines.
+
+`d.flow([...])` stacks the boxes, auto-assigns ids from their labels, and connects
+consecutive ones with arrows — no per-box coordinates and no manual chain. The
+legend is generated from what was used; d.check() reports overlaps without rendering.
 
 Run:  python examples/quickstart.py   →  out/examples/quickstart.{svg,png}
 """
 from pathlib import Path
 
-from archscope import Block, Diagram, Formula, IOLabel, OpDot, VStack
+from archscope import Block, Diagram, Formula, IOLabel, OpDot
 
 OUT = Path(__file__).resolve().parents[1] / "out" / "examples"
 
 d = Diagram(
     title="Quickstart — a residual MLP block",
-    subtitle="Blocks carry a semantic `kind` (color), a sublabel, and an optional "
-             "source pointer; edges route perpendicular to box sides by default.")
+    subtitle="d.flow() stacks + auto-connects; d.auto_legend() builds the key; "
+             "d.check() catches overlaps. Edges meet boxes perpendicular by default.")
 
-# 1. build a column (measured & centered automatically), bottom-up flow
-col = VStack([
-    IOLabel("y  (B, T, 768)", id="out"),
-    OpDot("+", id="add"),                                    # drawn glyph, not a font
-    Block("MLP", kind="ffn", sub="Linear 768→3072 · GELU · Linear 3072→768",
-          src="model.py:42", id="mlp"),
-    Block("LayerNorm", kind="norm", id="ln"),
-    IOLabel("x  (B, T, 768)", id="inp"),
-], gap=22)
-d.place(col, 200, 60)
+# one call: stack bottom-up, auto-ids from labels, auto-arrows between neighbours
+f = d.flow([
+    IOLabel("x  (B, T, 768)"),
+    Block("LayerNorm", kind="norm"),
+    Block("MLP", kind="ffn", sub="768 → 3072 · GELU · 3072 → 768", src="model.py:42"),
+    OpDot("+", id="add"),
+    IOLabel("y  (B, T, 768)"),
+], dir="up", x=240, y=120)
 
-# 2. connect by id — arrows enter/leave boxes perpendicular, with shape labels
-d.chain(["inp", "ln", "mlp", "add", "out"], labels=[None, "(B, T, 768)", None, None])
+# a residual rail on the left (tap the input, feed the add)
+inp = d.box("x_b_t_768")
+d.edge((inp.x, inp.cy), "add.l", via=[(inp.x - 80, inp.cy), (inp.x - 80, d.box("add").cy)],
+       style_name="residual", label="residual")
 
-# 3. a residual rail on the left
-src, dst = d.box("inp"), d.box("add")
-d.edge((src.x, src.cy), (dst.x, dst.cy), style_name="residual",
-       via=[(120, src.cy), (120, dst.cy)])
+# vector math, placed RELATIVE to the MLP box (no magic numbers)
+d.place(Formula(r"$y = x + \mathrm{MLP}(\mathrm{LN}(x))$", size=14), right_of="mlp", gap=40)
 
-# 4. vector math (matplotlib mathtext → outlined SVG paths)
-f = Formula(r"$y = x + \mathrm{MLP}(\mathrm{LN}(x))$", size=14)
-f.measure()
-d.place(f, d.box("mlp").x2 + 40, d.box("mlp").cy - f.h / 2)
-
+d.auto_legend(160, 86)
 d.save(OUT / "quickstart.svg")
-print("wrote", OUT / "quickstart.svg")
+print("wrote", OUT / "quickstart.svg", "· overlaps:", d.check())

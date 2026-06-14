@@ -58,6 +58,19 @@ EDGE = {
     "faint":    dict(stroke="#CBD5E1", width=1.1, dash=None),
 }
 
+EDGE_NAMES = {
+    "main": "data flow",
+    "residual": "residual",
+    "cond": "conditioning",
+    "cache": "cache / loop",
+    "faint": "aux / discarded",
+}
+
+MODALITY_NAMES = {
+    "video": "video", "action": "action", "text": "text",
+    "state": "state", "none": "other",
+}
+
 # typography scale (px)
 T_TITLE = 17
 T_SUBTITLE = 11.5

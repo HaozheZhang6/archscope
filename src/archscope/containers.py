@@ -41,8 +41,14 @@ class RepeatStack(Element):
 
 
 class VStack(Element):
-    def __init__(self, children, gap=26, align="center", id=None):
+    """Vertical stack. connect="up"|"down" auto-draws an arrow between consecutive
+    children (the dataflow), so you don't hand-write d.chain([...]). "up" = arrows
+    point bottom→top (input at bottom); "down" = top→bottom."""
+
+    def __init__(self, children, gap=26, align="center", id=None, connect=None,
+                 edge_style="main"):
         self.children, self.gap, self.align, self.id = children, gap, align, id
+        self.connect, self.edge_style = connect, edge_style
 
     def measure(self):
         sizes = [c.measure() for c in self.children]
@@ -52,17 +58,29 @@ class VStack(Element):
 
     def render(self, d, x, y):
         cy = y
+        boxes = []
         for c in self.children:
             cx = {"center": x + (self.w - c.w) / 2, "start": x,
                   "end": x + self.w - c.w}[self.align]
-            c.render(d, cx, cy)
+            boxes.append(c.render(d, cx, cy))
             cy += c.h + self.gap
+        if self.connect:
+            for a, b in zip(boxes, boxes[1:]):
+                up = self.connect == "up"
+                lo, hi = (b, a) if up else (a, b)   # arrow lo(bottom) -> hi(top)
+                src = (lo.cx, lo.y) if up else (lo.cx, lo.y2)
+                dst = (hi.cx, hi.y2) if up else (hi.cx, hi.y)
+                d.edge(src, dst, style_name=self.edge_style)
         return self._reg(d, x, y)
 
 
 class HStack(Element):
-    def __init__(self, children, gap=30, align="center", id=None):
+    """Horizontal stack. connect="right"|"left" auto-draws arrows between children."""
+
+    def __init__(self, children, gap=30, align="center", id=None, connect=None,
+                 edge_style="main"):
         self.children, self.gap, self.align, self.id = children, gap, align, id
+        self.connect, self.edge_style = connect, edge_style
 
     def measure(self):
         sizes = [c.measure() for c in self.children]
@@ -72,11 +90,19 @@ class HStack(Element):
 
     def render(self, d, x, y):
         cx = x
+        boxes = []
         for c in self.children:
             cy = {"center": y + (self.h - c.h) / 2, "start": y,
                   "end": y + self.h - c.h}[self.align]
-            c.render(d, cx, cy)
+            boxes.append(c.render(d, cx, cy))
             cx += c.w + self.gap
+        if self.connect:
+            for a, b in zip(boxes, boxes[1:]):
+                left = self.connect == "left"
+                lo, hi = (b, a) if left else (a, b)
+                src = (lo.x, lo.cy) if left else (lo.x2, lo.cy)
+                dst = (hi.x2, hi.cy) if left else (hi.x, hi.cy)
+                d.edge(src, dst, style_name=self.edge_style)
         return self._reg(d, x, y)
 
 
