@@ -55,6 +55,7 @@ class Diagram:
         self.used_kinds: list[str] = []      # order-preserving, de-duped on use
         self.used_modalities: list[str] = []
         self.used_edges: list[str] = []
+        self.used_ops: list[str] = []
 
     def _seen(self, lst, v):
         if v and v not in lst:
@@ -244,6 +245,9 @@ class Diagram:
             for e in self.used_edges:
                 if e in style.EDGE_NAMES:
                     ent.append((e, style.EDGE_NAMES[e], "edge"))
+        _opn = {"+": "add", "x": "gate (×)", "o": "modulate (⊙)"}
+        for op in self.used_ops:
+            ent.append((op, _opn.get(op, op), "glyph:" + op))
         ent += (extra or [])
         leg = Swatches(ent, max_w=max_w, id="leg")
         self.place(leg, x, y)

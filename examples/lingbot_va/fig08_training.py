@@ -48,15 +48,15 @@ p2 = GroupFrame(VStack([
 # ---------- P3: teacher forcing + noisy history -------------------------------------
 p3 = GroupFrame(VStack([
     TokenRow([
-        dict(label="~z", modality="video", hatch=True, sub="targets"),
-        dict(label="~z", modality="video", hatch=True, gap_after=12),
-        dict(label="~z", modality="video", hatch=True, sub="history p=.5"),
-        dict(label="z", modality="video", sub="history p=.5", gap_after=12),
-        dict(label="~a", modality="action", hatch=True, sub="targets"),
-        dict(label="~a", modality="action", hatch=True, gap_after=12),
-        dict(label="a", modality="action", sub="always clean"),
+        dict(label="~z", modality="video", hatch=True, sub="target"),
+        dict(label="~z", modality="video", hatch=True, gap_after=14),
+        dict(label="~z", modality="video", hatch=True, sub="hist .5"),
+        dict(label="z", modality="video", sub="clean", gap_after=14),
+        dict(label="~a", modality="action", hatch=True, sub="target"),
+        dict(label="~a", modality="action", hatch=True, gap_after=14),
+        dict(label="a", modality="action", sub="clean"),
         dict(label="a", modality="action"),
-    ], cell_w=32),
+    ], cell_w=50),
     TextLabel("teacher forcing: ground-truth history rides along as the clean segments "
               "(Fig 2), so all chunks train in parallel under the causal mask (Fig 5).",
               size=style.T_SUB + 1, color=style.MUTED, max_w=P_W - 60),

@@ -159,6 +159,7 @@ class OpDot(Element):
         return self.w, self.h
 
     def render(self, d, x, y):
+        d._seen(d.used_ops, self.op)
         cx, cy, r = x + self.R, y + self.R, self.R
         _, stroke, _ = style.KIND["op"]
         d.doc.circle("nodes", cx, cy, r, "#FFFFFF", stroke, 1.3)

@@ -71,10 +71,12 @@ d.place(eps, d.box("model").x2 + 56, BY)
 d.edge("model", "eps")
 d.note(d.box("eps").cx, BY - 26, "OUT: predicted noise  e_theta", size=style.T_SUB + 0.5,
        color="#6D28D9", anchor="middle", weight="600")
-d.note(d.box("eps").cx, BY - 13, "(or x_0, or v — same target, see prediction_targets)",
-       size=style.T_TINY + 1, color="#6D28D9", anchor="middle")
+d.note(d.box("eps").cx, BY - 13, "(or x_0 / v)", size=style.T_TINY + 1,
+       color="#6D28D9", anchor="middle")
 d.note(d.box("eps").cx, d.box("eps").y2 + 15, "same shape as x_t", size=style.T_SUB,
        color="#6D28D9", anchor="middle")
+d.note(d.box("eps").cx, d.box("eps").y2 + 28, "the 3 targets: see prediction_targets",
+       size=style.T_TINY, color=style.FAINT, anchor="middle")
 
 xtm = RasterImage(F(3), 96, id="xtm", rx=6, outline="#16A34A")
 d.place(xtm, d.box("eps").x2 + 70, BY)
