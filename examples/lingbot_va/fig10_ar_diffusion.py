@@ -8,20 +8,16 @@ with named ports, and the two loops (x30 layers vs xT denoise) drawn differently
 Video-frame thumbnails use a CC0 image as an illustrative stand-in (assets/flower)."""
 from pathlib import Path
 
-from archscope import (Block, Diagram, GroupFrame, IOLabel, OpDot, RasterImage,
-                       Swatches, TextLabel, VStack, style)
+from archscope import (Block, Diagram, GroupFrame, IOLabel, OpDot, Swatches,
+                       TextLabel, VStack, style)
 from common import OUT
-
-A = Path(__file__).resolve().parents[1] / "assets" / "flower"
-def vid(noised=0):
-    return str(A / "diff" / f"x_{noised}.png") if noised else str(A / "full.png")
 
 d = Diagram(
     title="Fig 10 · LingBot-VA = AR x diffusion — generate one interleaved video+action sequence, each chunk denoised by the DiT",
     subtitle="SEQUENCE axis (autoregressive): video frames (z) and action chunks (a) interleave into one causal "
              "sequence, generated chunk by chunk; KV-cache holds the clean past. WITHIN-CHUNK axis (diffusion): "
-             "each chunk starts as noise and is denoised by the DiT (timestep s -> AdaLN). Video frames shown as "
-             "image thumbnails, actions as value chips (illustrative).")
+             "each chunk starts as noise and is denoised by the DiT (timestep s -> AdaLN). Video frames drawn as "
+             "frame icons, actions as value chips (illustrative).")
 
 VS = 46  # video thumbnail size
 
@@ -29,15 +25,19 @@ VS = 46  # video thumbnail size
 SY = 120
 d.place(IOLabel("given: prompt + first obs o_0", id="g_in", modality="text"), 60, SY + VS/2 - 11)
 
-# interleaved chunks: z1 a1 | z2(gen) a2 | z3 a3
-def vtok(x, label, img=None, grey=False, noised=False):
-    if grey:
-        d.doc.rect("nodes", x, SY, VS, VS, "#F1F5F9", "#CBD5E1", 1.0, rx=5)
-    else:
-        RasterImage.emit(d.doc, img, x, SY, VS, VS, rx=5)
-        d.doc.rect("nodes", x, SY, VS, VS, "none", "#0284C7" if not noised else "#B91C1C",
-                   2.0 if noised else 1.2, rx=5)
-    d.doc.text("nodes", x + VS/2, SY + VS + 12, label, style.T_TINY + 1,
+# interleaved chunks: z1 a1 | z2(gen) a2 | z3 a3.
+# a video token is drawn as a neutral "video frame" glyph (rounded frame + play
+# triangle), tinted blue; hatched when it is the chunk being denoised.
+def vtok(x, label, grey=False, noised=False):
+    stroke = "#CBD5E1" if grey else ("#B91C1C" if noised else "#0284C7")
+    fill = ("#F1F5F9" if grey else
+            (f'url(#{d.doc.hatch("#E0F2FE", "#0284C7")})' if noised else "#E0F2FE"))
+    d.doc.rect("nodes", x, SY, VS, VS, fill, stroke, 2.0 if noised else 1.3, rx=6)
+    cx, cy = x + VS / 2, SY + VS / 2
+    tri = "#94A3B8" if grey else ("#B91C1C" if noised else "#0284C7")
+    d.doc.path("nodes", f"M {cx-6},{cy-9} L {cx-6},{cy+9} L {cx+9},{cy} Z",
+               fill=tri, stroke=tri, sw=1)
+    d.doc.text("nodes", x + VS / 2, SY + VS + 12, label, style.T_TINY + 1,
                style.MUTED if not noised else "#B91C1C", "600" if noised else "500")
 def atok(x, vals, label):
     w = 50
@@ -47,9 +47,9 @@ def atok(x, vals, label):
     return w
 
 x = 250
-vtok(x, "z1 frame", vid()); x += VS + 6
+vtok(x, "z1 frame"); x += VS + 6
 aw = atok(x, "1.7 1.2", "a1"); x += aw + 20
-vtok(x, "z2  GENERATING", vid(noised=3), noised=True); z2cx = x + VS/2; x += VS + 6
+vtok(x, "z2  GENERATING", noised=True); z2cx = x + VS/2; x += VS + 6
 atok(x, "? ?", "a2"); x += 50 + 20
 vtok(x, "z3", grey=True); x += VS + 6
 atok(x, "...", "a3"); x += 50 + 16
@@ -89,11 +89,12 @@ nb = d.box("noised")
 d.edge((z2cx, SY + VS), (nb.cx, nb.y), style_name="faint", dash="3 3", a_side="b", b_side="t",
        color="#B91C1C", label="zoom: how z2 is made")
 
-# the xT denoise loop (distinct: green, curved back-edge on the left)
+# the xT denoise loop (distinct: green, back-edge on the left into noised's LEFT
+# side — NOT the top, which the zoom arrow already uses)
 vb = d.box("vel")
 xr = nb.x - 36
-d.edge((vb.x, vb.cy), (nb.cx, nb.y), a_side="l", b_side="t",
-       via=[(xr, vb.cy), (xr, nb.y - 14)], color="#16A34A", width=1.6,
+d.edge((vb.x, vb.cy), (nb.x, nb.cy), a_side="l", b_side="l",
+       via=[(xr, vb.cy), (xr, nb.cy)], color="#16A34A", width=1.6,
        label="x T: integrate s 0 -> 1", label_side="left")
 
 # conditioning BUS with named ports (right of the stub)
