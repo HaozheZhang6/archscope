@@ -1,138 +1,122 @@
-"""Fig 2 — WanTransformer3DModel.forward_train: the whole-model dataflow (code version)."""
-from archscope import (Block, Diagram, GroupFrame, HStack, IOLabel, OpDot,
-                       RepeatStack, Spacer, Swatches, TextLabel, VStack, style)
+"""Fig 2 — WanTransformer3DModel training forward pass. Rebuilt for legibility:
+one bottom->top spine (inputs -> embed -> concat -> DiT x30 -> split -> heads ->
+velocity outputs), conditioning gathered into ONE right-side bus that taps the
+block at named ports, the block inlined as a 3-row stub, and an edge/symbol legend.
+wan_va/modules/model.py:702-798."""
+from archscope import (Block, Diagram, GroupFrame, HStack, IOLabel, Swatches,
+                       TextLabel, VStack, style)
 from common import OUT
 
 d = Diagram(
-    title="Fig 2 · WanTransformer3DModel — training forward pass (code version)",
-    subtitle="Four segments — noisy/clean video latents and noisy/clean actions — are embedded, "
-             "concatenated into ONE sequence, and pushed through 30 shared blocks; the mask "
-             "(Fig 5) supplies all structure. wan_va/modules/model.py:702-798")
+    title="Fig 2 · WanTransformer3DModel — training forward pass:  4 noised/clean segments -> 2 velocities",
+    subtitle="Noisy & clean video latents and noisy & clean actions are embedded to 3072, concatenated into ONE "
+             "sequence, pushed through 30 shared DiT blocks, split back, and read out as per-modality velocities. "
+             "Conditioning (RoPE, mask, text, per-frame timestep) taps every block.")
 
-X = 430
+X = 430  # spine center
 
-# ---- inputs row -------------------------------------------------------------------
+# ---- bottom: INPUT pills ----------------------------------------------------------
 ins = HStack([
-    IOLabel("noisy z  (B,48,F,h,w)", modality="video", hatched=True, id="nz"),
-    IOLabel("clean z  (B,48,F,h,w)", modality="video", id="cz"),
-    IOLabel("noisy a  (B,30,F,16,1)", modality="action", hatched=True, id="na"),
-    IOLabel("clean a  (B,30,F,16,1)", modality="action", id="ca"),
-], gap=22)
+    IOLabel("noisy z (B,48,F,h,w)", modality="video", hatched=True, id="nz"),
+    IOLabel("clean z (B,48,F,h,w)", modality="video", id="cz"),
+    IOLabel("noisy a (B,30,F,16,1)", modality="action", hatched=True, id="na"),
+    IOLabel("clean a (B,30,F,16,1)", modality="action", id="ca"),
+], gap=20)
 ins.measure()
-d.place(ins, X - ins.w / 2, 640)
+d.place(ins, X - ins.w / 2, 720)
+d.note(X - ins.w / 2, 720 + 30, "INPUT: noised targets + clean conditioning (teacher forcing)",
+       size=style.T_SUB + 0.5, color=style.INK, weight="600")
 
 # ---- embedders --------------------------------------------------------------------
 emb = HStack([
-    Block("patch_embedding_mlp", kind="linear", sub="Linear 48·1·2·2=192 → 3072",
-          src="model.py:624 (one set of weights, applied to noisy & clean)", id="pe"),
-    Block("action_embedder", kind="linear", sub="Linear 30 → 3072",
-          src="model.py:627 (one set of weights, applied to noisy & clean)", id="ae"),
-], gap=46)
+    Block("patch_embedding_mlp", kind="linear", sub="Linear 192 -> 3072",
+          src="model.py:624 · both z's", id="pe", min_w=210),
+    Block("action_embedder", kind="linear", sub="Linear 30 -> 3072",
+          src="model.py:627 · both a's", id="ae", min_w=210),
+], gap=70)
 emb.measure()
-d.place(emb, X - emb.w / 2, 560)
+d.place(emb, X - emb.w / 2, 636)
+d.edge("nz", "pe"); d.edge("cz", "pe")
+d.edge("na", "ae"); d.edge("ca", "ae")
 
-for s in ("nz", "cz"):
-    d.edge(s, "pe")
-for s in ("na", "ca"):
-    d.edge(s, "ae")
-
-# ---- concat -----------------------------------------------------------------------
-cc = Block("concat  [noisy z | clean z | noisy a | clean a]  + pad to ×128", kind="op",
-           id="cat", min_w=420)
-cc.measure()
-d.place(cc, X - cc.w / 2, 500)
-d.edge("pe", "cat", label="×2")
-d.edge("ae", "cat", label="×2", label_side="left")
-
-seq = IOLabel("(1, B·(2·F·h·w/4 + 2·F·16) + pad, 3072)", id="seq")
+# ---- concat → one sequence --------------------------------------------------------
+seq = IOLabel("concat -> one sequence  (1, L, 3072)   L = [noisy z | clean z | noisy a | clean a] + pad",
+              id="seq")
 seq.measure()
-d.place(seq, X - seq.w / 2, 448)
-d.edge("cat", "seq", route="straight")
+d.place(seq, X - seq.w / 2, 576)
+d.edge("pe", "seq"); d.edge("ae", "seq")
 
-# ---- transformer body ---------------------------------------------------------------
-body = RepeatStack(
-    Block("WanTransformerBlock", kind="model",
-          sub="self-attn (FlexAttention mask) · cross-attn (text) · FFN · per-token AdaLN",
-          src="→ Fig 3", id="blk", min_w=380),
-    times="×30", id="body")
-body.measure()
-d.place(body, X - body.w / 2, 330)
-d.edge("seq", "body")
+# ---- the DiT block stub, x30 (inlined, not a pointer) -----------------------------
+stub = GroupFrame(VStack([
+    Block("FFN", kind="ffn", id="s_ffn", min_w=300),
+    Block("cross-attention  <- text", kind="attention", id="s_x", min_w=300),
+    Block("self-attention  (FlexAttention mask, RoPE)", kind="attention", id="s_self", min_w=300),
+], gap=10), title="WanTransformerBlock  x30  ·  per-token AdaLN  (-> fig3 for the full block)",
+    title_pos="tag", dashed=False, tint="rgba(71,85,105,0.04)", stroke="#475569",
+    id="stub", pad=14)
+d.place(stub, X - 165, 400)
+d.chain(["s_self", "s_x", "s_ffn"])
+d.edge("seq", "stub.b@0.5", b_side="b", label="(1, L, 3072)")
 
-# side conditioners
-rope = Block("3D RoPE", kind="cond", sub="grid (f, y, x) — actions use (f, 1..16, 1)",
-             src="model.py:622, 727-731", id="rope")
-rope.measure()
-bb = d.box("body")
-d.place(rope, bb.x - rope.w - 64, bb.cy - 36 - rope.h / 2)
-d.edge("rope.r", "body.l@0.28", style_name="cond")
+# ---- conditioning BUS (right), named-port taps ------------------------------------
+sb = d.box("stub")
+bus_x = sb.x2 + 70
+cond = VStack([
+    Block("per-frame timestep", kind="cond", sub="-> 6-param AdaLN", id="c_t", min_w=170),
+    Block("text emb (UMT5)", kind="cond", sub="(1,B·512,3072)", id="c_txt", modality="text", min_w=170),
+    Block("FlexAttention mask", kind="mask", sub="-> fig5", id="c_m", min_w=170),
+    Block("3D RoPE", kind="cond", sub="grid (f,y,x)", id="c_r", min_w=170),
+], gap=12)
+cond.measure()
+d.place(cond, bus_x, sb.cy - cond.h / 2)
+rail = sb.x2 + 34
+for cid in ("c_t", "c_txt", "c_m", "c_r"):
+    cb = d.box(cid)
+    d.edge("%s.l" % cid, (rail, cb.cy), a_side="l", arrow=False, style_name="cond",
+           color="#DB2777" if cid == "c_txt" else None)
+d.doc.line("edges", rail, d.box("c_t").cy, rail, d.box("c_r").cy, "#94A3B8", 1.2, dash="5 3")
+d.edge((rail, d.box("s_self").cy + 6), "s_self.r@0.55", style_name="cond", label="-> AdaLN / RoPE / mask",
+       label_side="right")
+d.edge((rail, d.box("s_x").cy), "s_x.r@0.5", style_name="cond", color="#DB2777",
+       label="-> cross-attn K/V", label_side="right")
 
-mask = Block("FlexAttn mask", kind="mask", sub="rebuilt each step (random chunk 1-4, window 4-64)",
-             src="→ Fig 5", id="mask")
-mask.measure()
-d.place(mask, bb.x - mask.w - 64, bb.cy + 36 - mask.h / 2)
-d.edge("mask.r", "body.l@0.75", style_name="cond", color="#0D9488")
-
-txt = Block("text emb", kind="cond", sub="UMT5 (B,512,4096) → Linear → (B·512, 3072)",
-            src="model.py:714  · cross-attn KV", id="txt", modality="text")
-txt.measure()
-d.place(txt, bb.x2 + 64, bb.cy - 36 - txt.h / 2)
-d.edge("txt.l", "body.r@0.28", style_name="cond", color="#DB2777")
-
-tstep = Block("per-token timesteps", kind="cond",
-              sub="condition_embedder (video) | condition_embedder_action (action)",
-              src="model.py:628-635 · separate weights per modality", id="ts")
-tstep.measure()
-d.place(tstep, bb.x2 + 64, bb.cy + 36 - tstep.h / 2)
-d.edge("ts.l", "body.r@0.75", style_name="cond")
-tsb = d.box("ts")
-d.note(tsb.x, tsb.y2 + 14,
-       "noisy & clean segments get their own t — clean history may be re-noised "
-       "(augmentation, Fig 8)", size=style.T_SUB, color=style.FAINT, max_w=250)
-
-# ---- output ---------------------------------------------------------------------------
-no = Block("norm_out + AdaLN(shift, scale)", kind="norm",
-           sub="scale_shift_table (1,2,3072) + per-token temb", src="model.py:646-651, 780-787",
-           id="no", min_w=320)
+# ---- norm_out + split → heads -----------------------------------------------------
+no = Block("norm_out + AdaLN(shift, scale)", kind="norm", src="model.py:646-651", id="no", min_w=300)
 no.measure()
-d.place(no, X - no.w / 2, 252)
-d.edge("body", "no")
-
-sp = Block("split  [L_z | L_z | L_a | L_a | pad]", kind="op", id="sp", min_w=300)
-sp.measure()
-d.place(sp, X - sp.w / 2, 196)
-d.edge("no", "sp", route="straight")
+d.place(no, X - no.w / 2, 322)
+d.edge("stub", "no")
 
 heads = HStack([
-    Block("proj_out", kind="head", sub="3072 → 192 → unpatchify", src="model.py:647", id="ho",
-          modality="video"),
-    Block("(clean z, clean a, pad — discarded)", kind="io", sub="prediction is only read "
-          "from the noisy segments", id="disc"),
-    Block("action_proj_out", kind="head", sub="3072 → 30", src="model.py:649", id="ha",
-          modality="action"),
+    Block("proj_out", kind="head", sub="3072 -> 192 -> unpatchify", modality="video", id="ho", min_w=160),
+    Block("action_proj_out", kind="head", sub="3072 -> 30", modality="action", id="ha", min_w=160),
 ], gap=40)
 heads.measure()
-d.place(heads, X - heads.w / 2, 110)
-d.edge("sp", "ho")
-d.edge("sp", "ha")
-d.edge("sp", "disc", route="straight", style_name="faint", arrow=False)
+d.place(heads, X - heads.w / 2, 250)
+d.edge("no.t@0.4", "ho.b@0.5", b_side="b", label="noisy z half")
+d.edge("no.t@0.6", "ha.b@0.5", b_side="b", label="noisy a half")
 
+# discarded clean+pad half as a greyed branch
+disc = Block("clean z, clean a, pad", kind="io", sub="discarded — prediction read only from the noisy half",
+             id="disc", min_w=240)
+disc.measure()
+d.place(disc, d.box("no").x2 + 50, d.box("no").cy - disc.h / 2)
+d.edge("no.r@0.5", "disc.l@0.5", a_side="r", style_name="faint", arrow=True)
+
+# ---- top: OUTPUT velocity pills ---------------------------------------------------
 outs = HStack([
-    IOLabel("v_z  (B, 48, F, h, w)", modality="video", id="vo"),
-    Spacer(150, 1),
-    IOLabel("v_a  (B, 30, F, 16, 1)", modality="action", id="va"),
-], gap=30)
+    IOLabel("OUT: velocity v_z (B,48,F,h,w)", modality="video", id="vo"),
+    IOLabel("OUT: velocity v_a (B,30,F,16,1)", modality="action", id="va"),
+], gap=60)
 outs.measure()
-d.place(outs, X - outs.w / 2, 44)
-d.edge("ho", "vo", label="velocity")
-d.edge("ha", "va", label="velocity", label_side="left")
+d.place(outs, X - outs.w / 2, 180)
+d.edge("ho", "vo"); d.edge("ha", "va")
 
 leg = Swatches([("video", "video"), ("action", "action"), ("text", "text"),
-                (("#E0F2FE", "#0284C7"), "hatched = noisy", "hatch"),
-                ("linear", "linear/embed"), ("cond", "conditioning"),
-                ("mask", "mask"), ("head", "output head")], max_w=460, id="leg")
-ib = d.box("nz")
-d.place(leg, ib.x, 712)
+                ("model", "DiT block"), ("cond", "conditioning"), ("head", "head"),
+                (("#E0F2FE", "#0284C7"), "hatched = noised", "hatch"),
+                ("main", "data flow", "edge"), ("cond", "conditioning tap", "edge"),
+                ("faint", "discarded", "edge")], max_w=720, id="leg")
+d.place(leg, X - 360, 130)
 
 d.save(OUT / "fig02_forward.svg")
 print("ok")
