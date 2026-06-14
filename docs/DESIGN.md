@@ -92,6 +92,41 @@ quality bar at the cost of per-figure effort — the accepted trade.
   dashed ghosts (`RepeatStack`), edges attach to the cluster envelope so they never
   cross the ghost outlines.
 
+## Legibility playbook (from a conference-reviewer audit, 2026-06-13)
+
+A harsh NeurIPS-reviewer review of the figure set found the *example* figures
+(qwen3, the flowers, dit) legible but the *architecture* figures (the LingBot set)
+confusing: the reader "couldn't tell what the whole is, what each block's input is,
+or how parts relate." The recurring failures and the rules that fix them:
+
+1. **Show the whole, don't tell it.** Every figure needs a real input→output spine:
+   one labeled INPUT pill and one labeled OUTPUT pill at the two ends (shape on both),
+   plus a one-line "this is X: A→B" banner. Don't bury the system in the subtitle or
+   split it into parallel rails with no single path.
+2. **Canvas ≤ ~2:1.** Re-flow wide pipelines into stacked rows / a vertical spine.
+   A 3.8:1 strip is unreadable at page width.
+3. **Type every edge, on the arrow; run a collision pass.** No label/legend/badge may
+   overlap a box; put each tensor shape *on its arrow* with a leader. (The worst bug
+   found was a legend smeared over an output pill — keep legends out of the content.)
+4. **One block = name + (in-shape → out-shape) + ≤4-word role.** Move sentences,
+   `path:line`, and caveats to the caption or a side-note. No paragraphs inside boxes.
+5. **Show order with numbered, directional arrows; draw the two loop kinds differently**
+   (an "×N layers" stack bracket vs an "×T sampler / next-chunk" back-edge must not look
+   alike). Sequence ①→② as edges, not prose.
+6. **Collapse conditioning into one bus** that taps the block at *named ports*
+   (`→ AdaLN`, `→ cross-attn K/V`). Kill floating t/c/RoPE/mask boxes with crossing
+   dashed lines.
+7. **Every figure self-contained.** Inline a 3-box stub of any referenced block instead
+   of "→ Fig N"; cross-refs supplement, never substitute the centerpiece.
+8. **For comparisons, align on one shared spine and diff only the delta** (don't draw
+   two full architectures side by side); let a table carry the specifics.
+9. **Concrete > abstract for pedagogy.** Draw real tokens (image thumbnails, value
+   chips) rather than `z1 a1 z2` boxes when illustrating a sequence — the flower
+   figures are legible because of this.
+
+Applied first to: dit (legend fix), fig10 (full rebuild). TODO: fig09 (one-spine
+comparison), fig02 (conditioning bus), fig01 (canvas + numbered passes).
+
 ## Roadmap
 
 Phase 2: parameterized training-method figures (GPT NTP, BERT MLM, DiT/FM generic),
