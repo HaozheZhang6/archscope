@@ -14,6 +14,7 @@ self-contained SVG (+ 4× PNG if `resvg` is installed).
 | [`autoregressive_flower.py`](autoregressive_flower.py) | the illustrated style with a REAL photo: a tulip → patch tokens → a multimodal sequence; AR = input sequence in, the same sequence shifted by one out (predict the next token). Uses `RasterImage` | [svg](../out/examples/autoregressive_flower.svg) |
 | [`diffusion_flower.py`](diffusion_flower.py) | the diffusion counterpart on the same photo: the noising trajectory x_0→x_1, then one denoising step made explicit (noised image + t IN → predicted noise, same shape, OUT), σ_t→σ_{t-1}, looped ×T. Contrasts AR | [svg](../out/examples/diffusion_flower.svg) |
 | [`prediction_targets.py`](prediction_targets.py) | what the denoiser actually predicts: x_σ on the line between clean x_0 and noise ε, and the three equivalent targets — ε-pred, x_0-pred, v-pred — with their losses and conversions | [svg](../out/examples/prediction_targets.svg) |
+| [`wan_vace.py`](wan_vace.py) | Wan-VACE (1.3B): a ControlNet-style control branch — 15 trainable DiT blocks read a masked-video control signal (96-ch) and add residual hints into the frozen main DiT at every other layer. Grounded in DiffSynth `file:line` | [svg](../out/examples/wan_vace.svg) |
 | [`lingbot_va/`](lingbot_va/) | full case study: 8 figures drawn by an agent reading Ant Group's LingBot-VA code + paper, incl. the paper-vs-code MoT discrepancy | [gallery](../out/lingbot_va/README.md) |
 
 ```bash
