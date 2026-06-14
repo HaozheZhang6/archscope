@@ -13,17 +13,21 @@ vector math — you (or your coding agent) supply the understanding.
 <p align="center"><img src="out/examples/transformer_block.svg" width="640" alt="Pre-LN transformer block"></p>
 
 ```python
-col = VStack([
-    IOLabel("y  (B, T, 768)", id="out"),
+# one call: stack in dataflow order, auto-id from labels, auto-connect with arrows
+d.flow([
+    IOLabel("x  (B, T, 768)"),
+    Block("LayerNorm", kind="norm"),
+    Block("MLP", kind="ffn", sub="768 → 3072 · GELU · 3072 → 768", src="model.py:42"),
     OpDot("+", id="add"),
-    Block("MLP", kind="ffn", sub="Linear 768→3072 · GELU · Linear 3072→768",
-          src="model.py:42", id="mlp"),
-    Block("LayerNorm", kind="norm", id="ln"),
-    IOLabel("x  (B, T, 768)", id="inp"),
-], gap=22)
-d.place(col, 200, 60)
-d.chain(["inp", "ln", "mlp", "add", "out"], labels=[None, "(B, T, 768)", None, None])
+    IOLabel("y  (B, T, 768)"),
+], dir="up", x=240, y=120)
+
+d.auto_legend(160, 86)        # legend built from what was used
+assert not d.check()          # structured overlap report — no need to open the PNG
 ```
+
+No per-box coordinates, no manual `chain`, no hand-written legend. Place a second
+column relative to the first with `d.place(el, right_of="enc", gap=80)`.
 
 ## What it draws
 

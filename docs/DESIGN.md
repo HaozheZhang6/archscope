@@ -124,8 +124,29 @@ or how parts relate." The recurring failures and the rules that fix them:
    chips) rather than `z1 a1 z2` boxes when illustrating a sequence — the flower
    figures are legible because of this.
 
-Applied first to: dit (legend fix), fig10 (full rebuild). TODO: fig09 (one-spine
-comparison), fig02 (conditioning bus), fig01 (canvas + numbered passes).
+Applied to: dit (legend fix), fig10/fig02/fig09/fig01 (full rebuilds to the spine +
+bookend-pills + conditioning-bus discipline).
+
+## Low-friction API (studied diagrams.py / mermaid / graphviz / d2, 2026-06-13)
+
+The other lesson: those tools never make you write coordinates — you declare
+structure (nodes + edges) and a layout engine positions them. archscope keeps the
+"agent is the layout engine" thesis (hand-placed for paper-grade control) but adopts
+the lightweight wrappers that cut the render→eyeball-overlaps→nudge loop:
+
+- `d.flow([...], dir="up")` — one call = stack + auto-id-from-label + auto-connect
+  consecutive nodes (the diagrams.py `>>` idea). Children in dataflow order.
+- relative placement `d.place(el, right_of="enc", gap=80, ref_align="cy")` — kills the
+  inter-column magic numbers that drift into overlap on edits (graphviz `rank=same` /
+  d2 `near`, as a ~15-line `place()` upgrade).
+- `d.check() -> [(a,b,frac)]` over all id'd boxes + `save(on_overlap="warn"|"raise")` —
+  the overlap linter is a machine assertion, not a human eyeballing the PNG.
+- `d.auto_legend()` scans the kinds/modalities/edge-styles actually used; `Swatches`
+  keys edge styles (short arrows) and op glyphs so every special symbol is in the key.
+
+Not adopted (deliberately): a graphviz hard dependency. If auto-layout is ever wanted,
+the minimal path is a pure-Python longest-path layered placer (or `networkx.
+multipartite_layout`), or shelling to `dot -Tplain` for positions only — off by default.
 
 ## Roadmap
 
