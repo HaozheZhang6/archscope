@@ -36,15 +36,16 @@ emb = HStack([
 ], gap=70)
 emb.measure()
 d.place(emb, X - emb.w / 2, 636)
-d.edge("nz", "pe"); d.edge("cz", "pe")
-d.edge("na", "ae"); d.edge("ca", "ae")
+# fan-in to DISTINCT ports so the arrowheads never stack on one point
+d.edge("nz", "pe.b@0.30"); d.edge("cz", "pe.b@0.70")
+d.edge("na", "ae.b@0.30"); d.edge("ca", "ae.b@0.70")
 
 # ---- concat → one sequence --------------------------------------------------------
 seq = IOLabel("concat -> one sequence  (1, L, 3072)   L = [noisy z | clean z | noisy a | clean a] + pad",
               id="seq")
 seq.measure()
 d.place(seq, X - seq.w / 2, 576)
-d.edge("pe", "seq"); d.edge("ae", "seq")
+d.edge("pe", "seq.b@0.30"); d.edge("ae", "seq.b@0.70")
 
 # ---- the DiT block stub, x30 (inlined, not a pointer) -----------------------------
 stub = GroupFrame(VStack([
@@ -69,16 +70,19 @@ cond = VStack([
 ], gap=12)
 cond.measure()
 d.place(cond, bus_x, sb.cy - cond.h / 2)
-rail = sb.x2 + 34
+# ONE vertical rail; each condition taps it with a horizontal line (no arrowheads);
+# the rail then feeds the block at two named ports (the only arrows).
+rail = sb.x2 + 42
+ys = [d.box(c).cy for c in ("c_t", "c_txt", "c_m", "c_r")]
+d.doc.line("edges", rail, min(ys), rail, max(ys), "#94A3B8", 1.3, dash="5 3")
 for cid in ("c_t", "c_txt", "c_m", "c_r"):
     cb = d.box(cid)
-    d.edge("%s.l" % cid, (rail, cb.cy), a_side="l", arrow=False, style_name="cond",
-           color="#DB2777" if cid == "c_txt" else None)
-d.doc.line("edges", rail, d.box("c_t").cy, rail, d.box("c_r").cy, "#94A3B8", 1.2, dash="5 3")
-d.edge((rail, d.box("s_self").cy + 6), "s_self.r@0.55", style_name="cond", label="-> AdaLN / RoPE / mask",
-       label_side="right")
-d.edge((rail, d.box("s_x").cy), "s_x.r@0.5", style_name="cond", color="#DB2777",
-       label="-> cross-attn K/V", label_side="right")
+    d.doc.line("edges", rail, cb.cy, cb.x, cb.cy,
+               "#DB2777" if cid == "c_txt" else "#94A3B8", 1.2, dash="5 3")
+d.edge((rail, d.box("s_self").cy), "s_self.r@0.5", route="straight", style_name="cond",
+       label="-> AdaLN / RoPE / mask", label_side="right")
+d.edge((rail, d.box("s_x").cy), "s_x.r@0.5", route="straight", style_name="cond",
+       color="#DB2777", label="-> cross-attn K/V", label_side="right")
 
 # ---- norm_out + split → heads -----------------------------------------------------
 no = Block("norm_out + AdaLN(shift, scale)", kind="norm", src="model.py:646-651", id="no", min_w=300)

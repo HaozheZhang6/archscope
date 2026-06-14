@@ -140,6 +140,8 @@ class Diagram:
             return self.anchors[name].anchor(a), (name, a[0])
         return None, (spec, None)
 
+    edge_ends: list = None
+
     def edge(self, src, dst, a_side=None, b_side=None, stub=14, frac=0.5, **kw):
         self._seen(self.used_edges, kw.get("style_name", "main"))
         a, ainfo = self._pt(src)
@@ -173,6 +175,9 @@ class Diagram:
             pts = _perp_route(a, sa, b, sb, stub, frac)
             if len(pts) > 2:
                 kw["via"] = pts[1:-1]
+        if kw.get("arrow", True):                      # record arrowhead landing point
+            self.edge_ends = self.edge_ends or []
+            self.edge_ends.append(tuple(b))
         draw_edge(self.doc, a, b, **kw)
 
     @staticmethod
@@ -267,16 +272,41 @@ class Diagram:
                     hits.append((na, nb, round(frac, 2)))
         return hits
 
+    def check_arrows(self, tol=7.0):
+        """Return groups of arrowheads that land on (nearly) the same point —
+        i.e. edges that converge and stack their heads. Route them to distinct
+        ports (e.g. 'box.b@0.3' / '@0.7') to fix."""
+        ends = self.edge_ends or []
+        groups, used = [], [False] * len(ends)
+        for i in range(len(ends)):
+            if used[i]:
+                continue
+            grp = [i]
+            for j in range(i + 1, len(ends)):
+                if not used[j] and abs(ends[i][0] - ends[j][0]) <= tol \
+                        and abs(ends[i][1] - ends[j][1]) <= tol:
+                    grp.append(j); used[j] = True
+            if len(grp) > 1:
+                groups.append((tuple(round(v) for v in ends[i]), len(grp)))
+        return groups
+
     def warn_overlaps(self, on_overlap="warn"):
         hits = self.check()
-        if hits and on_overlap != "ignore":
-            msg = "archscope: %d overlapping box(es):\n" % len(hits) + "\n".join(
-                "  '%s' x '%s'  (%.0f%%)" % (a, b, f * 100) for a, b, f in hits)
+        arrows = self.check_arrows()
+        if (hits or arrows) and on_overlap != "ignore":
+            parts = []
+            if hits:
+                parts += ["%d overlapping box(es):" % len(hits)] + [
+                    "  '%s' x '%s'  (%.0f%%)" % (a, b, f * 100) for a, b, f in hits]
+            if arrows:
+                parts += ["%d arrowhead pile-up(s) — route to distinct ports:" % len(arrows)] + [
+                    "  %d arrows land at ~(%d,%d)" % (n, p[0], p[1]) for p, n in arrows]
+            msg = "archscope: " + "\n".join(parts)
             if on_overlap == "raise":
                 raise ValueError(msg)
             import sys
             print(msg, file=sys.stderr)
-        return hits
+        return hits + arrows
 
     # --- output ----------------------------------------------------------------
     def _title_block(self):
