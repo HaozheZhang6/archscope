@@ -148,12 +148,16 @@ class MaskGrid(Element):
 
 
 class Swatches(Element):
-    """Inline legend: colored swatch + label pairs.
+    """Inline legend: swatch + label pairs.
 
-    entries: list of (kind_or_color, label[, opts]) where kind_or_color is a
-    key of style.KIND / style.MODALITY, or a raw (fill, stroke) tuple.
-    opts: 'hatch' to hatch the swatch, 'dash' for dashed border.
-    """
+    entries: list of (key, label[, opts]) where key is a key of style.KIND /
+    style.MODALITY, or a raw (fill, stroke) tuple.
+    opts:
+      ''                 box swatch (default); 'hatch' / 'dash' decorate it.
+      'edge'             draw a short ARROW (for edge types) — key is an edge
+                         style name (style.EDGE) or a (color, dash) tuple.
+      'glyph:+'/':x'/':o' draw an OpDot (+ add, x multiply, o modulate).
+    Use this so every special symbol/edge style in a figure is keyed."""
 
     def __init__(self, entries, gap=16, id=None, swatch=13, size=None,
                  max_w=None, line_gap=8):
@@ -198,14 +202,46 @@ class Swatches(Element):
         for ln in self.lines:
             xx = x
             for key, label, opts, w in ln:
-                fill, stroke = self._resolve(key)
-                if "hatch" in opts:
-                    fill = f'url(#{d.doc.hatch(fill, stroke)})'
-                d.doc.rect("nodes", xx, yy, self.sw, self.sw, fill, stroke,
-                           1.1, rx=3.5, dash="3 2" if "dash" in opts else None)
-                d.doc.text("nodes", xx + self.sw + 6,
-                           yy + self.sw / 2 + self.size * 0.36, label,
-                           self.size, style.MUTED, anchor="start")
+                cy = yy + self.sw / 2
+                if opts.startswith("edge"):
+                    color, dash = self._resolve_edge(key)
+                    d.doc.path("nodes",
+                               f"M {xx:.1f},{cy:.1f} L {xx + self.sw:.1f},{cy:.1f}",
+                               stroke=color, sw=1.7, dash=dash,
+                               marker_end=d.doc.marker(color),
+                               bbox=(xx, cy - 2, self.sw, 4))
+                elif opts.startswith("glyph"):
+                    self._glyph(d, opts.split(":")[1], xx, cy)
+                else:
+                    fill, stroke = self._resolve(key)
+                    if "hatch" in opts:
+                        fill = f'url(#{d.doc.hatch(fill, stroke)})'
+                    d.doc.rect("nodes", xx, yy, self.sw, self.sw, fill, stroke,
+                               1.1, rx=3.5, dash="3 2" if "dash" in opts else None)
+                d.doc.text("nodes", xx + self.sw + 6, cy + self.size * 0.36,
+                           label, self.size, style.MUTED, anchor="start")
                 xx += w + self.gap
             yy += self.sw + self.line_gap
         return self._reg(d, x, y)
+
+    @staticmethod
+    def _resolve_edge(key):
+        if isinstance(key, tuple):
+            return key[0], (key[1] if len(key) > 1 else None)
+        e = style.EDGE.get(key, style.EDGE["main"])
+        return e["stroke"], e["dash"]
+
+    def _glyph(self, d, op, x, cy):
+        cx, r = x + self.sw / 2, self.sw / 2
+        _, stroke, _ = style.KIND["op"]
+        d.doc.circle("nodes", cx, cy, r, "#FFFFFF", stroke, 1.2)
+        k = r * 0.5
+        if op == "+":
+            d.doc.line("nodes", cx - k, cy, cx + k, cy, stroke, 1.5)
+            d.doc.line("nodes", cx, cy - k, cx, cy + k, stroke, 1.5)
+        elif op == "x":
+            k *= 0.85
+            d.doc.line("nodes", cx - k, cy - k, cx + k, cy + k, stroke, 1.5)
+            d.doc.line("nodes", cx - k, cy + k, cx + k, cy - k, stroke, 1.5)
+        elif op == "o":
+            d.doc.circle("nodes", cx, cy, r * 0.4, stroke)
