@@ -1,114 +1,137 @@
-"""Fig 10 — how LingBot-VA's architecture is AR x diffusion. fig9 only compared which
-weights are shared; this figure shows the generative mechanism the model actually is:
-an AUTOREGRESSIVE interleaved video-action sequence (causal, KV-cache, chunk by chunk),
-where each chunk is produced by FLOW-MATCHING DIFFUSION through the DiT (the timestep
-drives per-token AdaLN). The blocks in fig9 are DiT blocks; here is what they do."""
-from archscope import (Block, Diagram, IOLabel, RepeatStack, Swatches,
-                       TextLabel, TokenRow, VStack, style)
+"""Fig 10 — LingBot-VA is AR x diffusion. Rebuilt for legibility (reviewer playbook):
+one input pill -> one output pill spine, the AR sequence drawn with CONCRETE tokens
+(video frames as image thumbnails, actions as value chips, like the paper's Fig 2),
+the diffusion zoom nested directly under the generating chunk (no whitespace gap), the
+DiT block inlined as a 3-row stub (not a pointer), conditioning gathered into one bus
+with named ports, and the two loops (x30 layers vs xT denoise) drawn differently.
+
+Video-frame thumbnails use a CC0 image as an illustrative stand-in (assets/flower)."""
+from pathlib import Path
+
+from archscope import (Block, Diagram, GroupFrame, IOLabel, OpDot, RasterImage,
+                       Swatches, TextLabel, VStack, style)
 from common import OUT
 
+A = Path(__file__).resolve().parents[1] / "assets" / "flower"
+def vid(noised=0):
+    return str(A / "diff" / f"x_{noised}.png") if noised else str(A / "full.png")
+
 d = Diagram(
-    title="Fig 10 · The architecture is AR x diffusion — interleaved causal chunks, each denoised by the DiT",
-    subtitle="Two axes. SEQUENCE axis (autoregressive): video and action tokens are interleaved into one causal "
-             "sequence and generated chunk by chunk; the KV-cache holds the clean past (causal mask -> fig5). "
-             "WITHIN-CHUNK axis (diffusion): each chunk starts as noise and is denoised by the DiT via flow "
-             "matching; the diffusion timestep drives the per-token AdaLN that conditions every block (-> fig3).")
+    title="Fig 10 · LingBot-VA = AR x diffusion — generate one interleaved video+action sequence, each chunk denoised by the DiT",
+    subtitle="SEQUENCE axis (autoregressive): video frames (z) and action chunks (a) interleave into one causal "
+             "sequence, generated chunk by chunk; KV-cache holds the clean past. WITHIN-CHUNK axis (diffusion): "
+             "each chunk starts as noise and is denoised by the DiT (timestep s -> AdaLN). Video frames shown as "
+             "image thumbnails, actions as value chips (illustrative).")
 
-# ============ TOP: the AR axis — interleaved causal sequence ============
-SY = 110
-seq = TokenRow([
-    dict(label="z1", modality="video", w=40, sub="frame"),
-    dict(label="a1", modality="action", w=40, sub="actions", gap_after=14),
-    dict(label="z2", modality="video", w=40, hatch=True, bold_border=True, sub="GENERATING"),
-    dict(label="a2", modality="action", w=40, gap_after=14),
-    dict(label="z3", modality="video", w=40), dict(label="a3", modality="action", w=40),
-    dict(label="...", modality="none", w=34),
-], cell_w=40, cell_h=30, id="seq")
-seq.measure()
-d.place(seq, 150, SY)
-d.note(150, SY - 26, "autoregressive: one interleaved video+action sequence, generated chunk by chunk "
-       "(z = video frame, a = its tau=4 actions)", size=style.T_SUB + 0.5, color=style.INK,
-       weight="600")
-sb = d.box("seq")
-# causal generation arrow + history/future labels, below the row's sub-labels
-ay = sb.y2 + 22
-d.edge((sb.x, ay), (sb.x2 - 30, ay), color="#334155", width=1.4,
-       label="generate left -> right · chunk t+1 attends <= t", label_side="right")
-d.note(150, ay + 18, "<- clean history (KV-cache)", size=style.T_SUB, color="#0D9488")
-d.note(sb.x2, ay + 18, "future ->", size=style.T_SUB, color=style.FAINT, anchor="end")
+VS = 46  # video thumbnail size
 
-# ============ ZOOM: how the GENERATING chunk z2 is produced ============
-# z2 is the 3rd cell: after z1,a1 (2 cells + gap) + the 14px gap_after.
-z2x = sb.x + 2 * (40 + 3.5) + 14 + 20
-d.note(z2x, ay + 40, "zoom: how one chunk is generated", size=style.T_SUB, color=style.MUTED,
-       anchor="middle")
+# ============ LAYER 1: the AR sequence, concrete tokens, input->output spine ============
+SY = 120
+d.place(IOLabel("given: prompt + first obs o_0", id="g_in", modality="text"), 60, SY + VS/2 - 11)
 
-# ============ BODY: the diffusion axis — flow-matching denoise of one chunk ============
-DX = 420
+# interleaved chunks: z1 a1 | z2(gen) a2 | z3 a3
+def vtok(x, label, img=None, grey=False, noised=False):
+    if grey:
+        d.doc.rect("nodes", x, SY, VS, VS, "#F1F5F9", "#CBD5E1", 1.0, rx=5)
+    else:
+        RasterImage.emit(d.doc, img, x, SY, VS, VS, rx=5)
+        d.doc.rect("nodes", x, SY, VS, VS, "none", "#0284C7" if not noised else "#B91C1C",
+                   2.0 if noised else 1.2, rx=5)
+    d.doc.text("nodes", x + VS/2, SY + VS + 12, label, style.T_TINY + 1,
+               style.MUTED if not noised else "#B91C1C", "600" if noised else "500")
+def atok(x, vals, label):
+    w = 50
+    d.doc.rect("nodes", x, SY + 8, w, VS - 16, "#D1FAE5", "#059669", 1.1, rx=5)
+    d.doc.text("nodes", x + w/2, SY + VS/2 + 1, vals, style.T_TINY + 1, "#064E3B", "600")
+    d.doc.text("nodes", x + w/2, SY + VS + 12, label, style.T_TINY + 1, style.MUTED, "500")
+    return w
+
+x = 250
+vtok(x, "z1 frame", vid()); x += VS + 6
+aw = atok(x, "1.7 1.2", "a1"); x += aw + 20
+vtok(x, "z2  GENERATING", vid(noised=3), noised=True); z2cx = x + VS/2; x += VS + 6
+atok(x, "? ?", "a2"); x += 50 + 20
+vtok(x, "z3", grey=True); x += VS + 6
+atok(x, "...", "a3"); x += 50 + 16
+d.doc.text("nodes", x + 8, SY + VS/2 + 4, "...", style.T_LABEL, style.FAINT)
+
+d.place(IOLabel("out: video frames + action chunks", id="g_out", modality="video"), x + 40, SY + VS/2 - 11)
+d.note(250, SY - 26, "AUTOREGRESSIVE sequence — generate chunk by chunk:", size=style.T_SUB + 1,
+       color=style.INK, weight="600")
+# causal arrow under the row
+ay = SY + VS + 26
+d.edge((250, ay), (x - 10, ay), color="#334155", width=1.4,
+       label="chunk t+1 attends <= t · KV-cache holds the clean past (z1,a1)", label_side="right")
+d.edge("g_in.r", (244, SY + VS/2), b_side="l", style_name="faint")
+
+# ============ LAYER 2 + 3: zoom into z2 -> the diffusion denoise (no gap) ============
+DY = SY + VS + 70
+stub = GroupFrame(VStack([
+    Block("FFN", kind="ffn", id="s_ffn", min_w=230),
+    Block("cross-attention  <- text", kind="attention", id="s_x", min_w=230),
+    Block("self-attention  (causal mask, KV-cache)", kind="attention", id="s_self", min_w=230),
+], gap=9), title="DiT block  x30  (the same shared block)", title_pos="tag", dashed=False,
+    tint="rgba(71,85,105,0.04)", stroke="#475569", id="stub", pad=13)
+
 body = VStack([
-    IOLabel("clean chunk  z2  (the generated frame)", id="clean", modality="video"),
-    Block("velocity head  v_theta", kind="head",
-          sub="OUT: predicted velocity, same shape as z2 · v = (data - noise) direction", id="vel",
-          min_w=300),
-    RepeatStack(Block("DiT block", kind="model",
-                      sub="self-attn (causal mask, KV-cache) · cross-attn(text) · FFN",
-                      src="-> fig3 / fig9 (same shared block)", id="blk", min_w=300),
-                times="×30", id="dit"),
-    IOLabel("IN: noised chunk  z2^(s)  (pure noise at s=0)", id="noised",
-            modality="video", hatched=True),
-], gap=22)
-d.place(body, DX, SY + 128)
-d.chain(["noised", "dit", "vel", "clean"])
+    IOLabel("clean chunk  z2   (-> goes back into the sequence above)", id="clean", modality="video"),
+    Block("velocity head -> predicted v_theta   (OUT: same shape as z2)", kind="head", id="vel", min_w=300),
+    stub,
+    IOLabel("IN: noised chunk  z2^(s)   (pure noise at s=0)", id="noised", modality="video", hatched=True),
+], gap=18)
+d.place(body, z2cx - 150, DY + 26)
+d.chain(["noised", "stub", "vel", "clean"])
+d.note(z2cx - 150, DY + 8, "DIFFUSION within the chunk — flow-matching denoise:", size=style.T_SUB + 1,
+       color=style.INK, weight="600")
 
-# zoom lines from the z2 cell down to the diffusion stack top
+# magnifier: connect z2 cell to the diffusion IN, no whitespace canyon
 nb = d.box("noised")
-d.edge((z2x, sb.y2 + 28), (nb.cx, nb.y), style_name="faint", dash="4 3", a_side="b", b_side="t")
+d.edge((z2cx, SY + VS), (nb.cx, nb.y), style_name="faint", dash="3 3", a_side="b", b_side="t",
+       color="#B91C1C", label="zoom: how z2 is made")
 
-# the denoising loop (flow matching, s: 0 -> 1) — on the LEFT
+# the xT denoise loop (distinct: green, curved back-edge on the left)
 vb = d.box("vel")
-xr = nb.x - 38
+xr = nb.x - 36
 d.edge((vb.x, vb.cy), (nb.cx, nb.y), a_side="l", b_side="t",
-       via=[(xr, vb.cy), (xr, nb.y - 16)], color="#16A34A", width=1.5,
-       label="x T:  integrate s 0 -> 1  (flow matching)", label_side="left")
+       via=[(xr, vb.cy), (xr, nb.y - 14)], color="#16A34A", width=1.6,
+       label="x T: integrate s 0 -> 1", label_side="left")
 
-# the diffusion conditioning: timestep s -> AdaLN (the thing that makes it a DiT) — RIGHT, mid
-ditb = d.box("dit")
-ada = Block("diffusion timestep  s  ->  AdaLN", kind="cond",
-            sub="temb + scale_shift_table -> 6 params (shift,scale,gate)x2 · model.py:524 · "
-                "conditions EVERY block", id="ada", min_w=240)
-ada.measure()
-d.place(ada, ditb.x2 + 56, ditb.cy - ada.h / 2 - 18)
-d.edge("ada.l", "dit.r@0.42", style_name="cond")
-txt = Block("umT5 text", kind="cond", sub="prompt -> cross-attn K/V", id="txt", modality="text")
-txt.measure()
-d.place(txt, ditb.x2 + 56, ditb.cy + 24)
-d.edge("txt.l", "dit.r@0.72", style_name="cond", color="#DB2777")
+# conditioning BUS with named ports (right of the stub)
+sb = d.box("stub")
+bus_x = sb.x2 + 80
+cond = VStack([
+    Block("diffusion timestep s", kind="cond", sub="model.py:524", id="c_s", min_w=150),
+    Block("umT5 text", kind="cond", sub="prompt", id="c_t", modality="text", min_w=150),
+], gap=14)
+d.place(cond, bus_x, sb.cy - 30)
+rail = sb.x2 + 36
+d.edge("c_s.l", (rail, d.box("c_s").cy), a_side="l", arrow=False, style_name="cond")
+d.edge("c_t.l", (rail, d.box("c_t").cy), a_side="l", arrow=False, style_name="cond", color="#DB2777")
+d.doc.line("edges", rail, d.box("c_s").cy, rail, d.box("c_t").cy, "#94A3B8", 1.2, dash="5 3")
+d.edge((rail, d.box("s_self").cy - 6), "s_self.r@0.4", style_name="cond",
+       label="-> AdaLN", label_side="right")
+d.edge((rail, d.box("s_x").cy), "s_x.r@0.5", style_name="cond", color="#DB2777",
+       label="-> K/V", label_side="right")
 
-# the action chunk: a compact note at the TOP-RIGHT (clean's row), well above the AdaLN rail
+# ============ LAYER 4: the action chunk (compact, conditioned on z2) ============
 cb = d.box("clean")
-a_note = Block("then: action chunk a2", kind="io", modality="action",
-               sub="same DiT denoises the actions, conditioned on the predicted z2\n"
-                   "(inverse dynamics) · s: 0 -> 1", id="a_note", min_w=250)
+a_note = Block("then a2: the SAME DiT denoises the action chunk", kind="io", modality="action",
+               sub="conditioned on the just-made z2 (inverse dynamics) · s: 0 -> 1", id="a2", min_w=270)
 a_note.measure()
-d.place(a_note, cb.x2 + 70, cb.cy - a_note.h / 2)
-d.edge("clean.r@0.5", "a_note.l@0.5", style_name="cache", color="#0D9488", label="z2")
+d.place(a_note, cb.x2 + 60, cb.cy - a_note.h / 2)
+d.edge("clean.r@0.5", "a2.l@0.5", style_name="cache", color="#0D9488", label="z2 conditions a2")
 
-# ============ BOTTOM: the two-axis summary ============
-by = max(d.box("noised").y2, d.box("txt").y2) + 46
-d.note(150, by,
-       "So: AR is the SEQUENCE axis (interleave video+action, causal, KV-cache, chunk by chunk); "
-       "diffusion is the WITHIN-CHUNK axis (flow-matching denoise through the DiT, timestep -> AdaLN).",
-       size=style.T_SUB + 1, color=style.INK, max_w=1000)
-d.note(150, by + 16,
-       "The shared DiT backbone of fig9 is exactly this DiT — one network both predicts video (forward "
-       "dynamics) and decodes actions (inverse dynamics), at every autoregressive step.",
+# ============ bottom one-liner ============
+by = max(d.box("noised").y2, d.box("c_t").y2) + 34
+d.note(60, by, "Read it as: AR is the SEQUENCE axis (interleave z & a, causal, KV-cache, chunk by chunk); "
+       "DIFFUSION is the WITHIN-CHUNK axis (denoise each chunk through the DiT, s -> AdaLN). One DiT does both.",
        size=style.T_SUB + 1, color=style.MUTED, max_w=1000)
 
-leg = Swatches([("video", "video chunk / latent"), ("action", "action chunk"),
+leg = Swatches([(("#E0F2FE", "#0284C7"), "video frame token z"), ("action", "action chunk a"),
                 ("model", "DiT (denoiser)"), ("head", "velocity head"),
                 ("cond", "diffusion timestep / text"),
-                (("#E0F2FE", "#0284C7"), "hatched = noised", "hatch")], max_w=720, id="leg")
-d.place(leg, 150, SY - 60)
+                (("#E0F2FE", "#B91C1C"), "noised (being denoised)", "hatch")], max_w=820, id="leg")
+d.place(leg, 60, 70)
 
 d.save(OUT / "fig10_ar_diffusion.svg")
 print("ok")

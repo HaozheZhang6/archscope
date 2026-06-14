@@ -111,8 +111,8 @@ d.note(d.box("b_mlp").x, d.box("b_mlp").y2 + 14,
 leg = Swatches([("video", "latent / output"), ("model", "DiT"), ("attention", "attention"),
                 ("ffn", "FFN"), ("norm", "norm"), ("cond", "conditioning / modulation"),
                 ("head", "output head"),
-                (("#E0F2FE", "#0284C7"), "hatched = noised", "hatch")], max_w=300, id="leg")
-d.place(leg, X - 40, 70)
+                (("#E0F2FE", "#0284C7"), "hatched = noised", "hatch")], max_w=620, id="leg")
+d.place(leg, X - 40, max(d.box("t").y2, d.box("c").y2) + 44)
 
 d.save(OUT / "dit_latent_diffusion.svg")
 print("wrote", OUT / "dit_latent_diffusion.svg")
