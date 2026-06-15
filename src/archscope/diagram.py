@@ -56,6 +56,8 @@ class Diagram:
         self.used_modalities: list[str] = []
         self.used_edges: list[str] = []
         self.used_ops: list[str] = []
+        self.edge_ends: list = []
+        self.edge_paths: list = []
 
     def _seen(self, lst, v):
         if v and v not in lst:
@@ -151,6 +153,12 @@ class Diagram:
                         else None)
         sb = b_side or (binfo[1] if binfo and binfo[1] and binfo[1] in "tblr"
                         else None)
+        # an endpoint's exit side may be re-chosen ONLY when the caller gave a bare
+        # id (no explicit side / port) — a pinned port like 'net.l@0.25' is respected.
+        abox = self.anchors.get(ainfo[0]) if ainfo else None
+        bbox = self.anchors.get(binfo[0]) if binfo else None
+        a_free = a_side is None and not (ainfo and ainfo[1]) and abox is not None
+        b_free = b_side is None and not (binfo and binfo[1]) and bbox is not None
         # auto-pick facing sides when only ids were given
         if a is None or b is None:
             abox = self.anchors[ainfo[0]] if ainfo else None
@@ -171,14 +179,25 @@ class Diagram:
                 b, fs = self._face(bbox, a)
                 sb = b_side or fs
         # perpendicular entry/exit routing by default: leave the source box along
-        # its side normal, arrive at the target box along its side normal.
+        # its side normal, arrive at the target box along its side normal. If that
+        # straight perpendicular path would pierce another box, the router detours
+        # (sweeps the bend, then re-picks free exit sides) so authors don't have to
+        # hand-route around obstacles — the framework gets it right the first time.
         if kw.get("route", "auto") == "auto" and not kw.get("via") and sa and sb:
-            pts = _perp_route(a, sa, b, sb, stub, frac)
-            if len(pts) > 2:
-                kw["via"] = pts[1:-1]
+            a, sa, b, sb, via = self._clear_route(
+                a, sa, b, sb, stub, frac,
+                abox if a_free else None, bbox if b_free else None,
+                ainfo[0] if ainfo else None, binfo[0] if binfo else None)
+            if via:
+                kw["via"] = via
         if kw.get("arrow", True):                      # record arrowhead landing point
             self.edge_ends = self.edge_ends or []
             self.edge_ends.append(tuple(b))
+        # record the full polyline + the boxes it connects, for the through-box linter
+        self.edge_paths = self.edge_paths or []
+        poly = [tuple(a), *[tuple(v) for v in kw.get("via", [])], tuple(b)]
+        self.edge_paths.append((poly, ainfo[0] if ainfo else None,
+                                binfo[0] if binfo else None))
         draw_edge(self.doc, a, b, **kw)
 
     @staticmethod
@@ -190,6 +209,79 @@ class Diagram:
         if y <= box.y:
             return box.top(), "t"
         return (box.left(), "l") if x < box.x else (box.right(), "r")
+
+    # --- obstacle-aware orthogonal routing -----------------------------------
+    @staticmethod
+    def _port_on(box, side):
+        return {"t": box.top, "b": box.bottom, "l": box.left, "r": box.right}[side]()
+
+    @staticmethod
+    def _sides_pref(box, target):
+        """box sides ordered by how well they face `target` (best first)."""
+        dx, dy = target[0] - box.cx, target[1] - box.cy
+        horiz = ["r", "l"] if dx >= 0 else ["l", "r"]
+        vert = ["b", "t"] if dy >= 0 else ["t", "b"]
+        return ([horiz[0], vert[0], vert[1], horiz[1]] if abs(dx) >= abs(dy)
+                else [vert[0], horiz[0], horiz[1], vert[1]])
+
+    def _clear_route(self, a, sa, b, sb, stub, frac, abox, bbox, sid, did):
+        """Orthogonal route a->b that avoids piercing other boxes. abox/bbox are
+        non-None only for endpoints whose exit side may be re-chosen (bare ids);
+        pinned ports pass None. Tries the plain perpendicular route first and keeps
+        it when clean, so default-good edges never change; otherwise sweeps the bend
+        and re-picks free sides, falling back to the original if nothing is clear
+        (never worse than before — the save()-time linter still flags a true miss)."""
+        default = _perp_route(a, sa, b, sb, stub, frac)
+        if not self._poly_pierces(default, sid, did):
+            return a, sa, b, sb, default[1:-1]
+        a_opts = [(sa, a)]
+        if abox is not None:
+            a_opts += [(s, self._port_on(abox, s)) for s in self._sides_pref(abox, b)
+                       if s != sa]
+        b_opts = [(sb, b)]
+        if bbox is not None:
+            b_opts += [(s, self._port_on(bbox, s)) for s in self._sides_pref(bbox, a)
+                       if s != sb]
+        for fr in (frac, 0.32, 0.68, 0.16, 0.84, 0.5):
+            for saa, apt in a_opts:
+                for sbb, bpt in b_opts:
+                    pts = _perp_route(apt, saa, bpt, sbb, stub, fr)
+                    if not self._poly_pierces(pts, sid, did):
+                        return apt, saa, bpt, sbb, pts[1:-1]
+        return a, sa, b, sb, default[1:-1]
+
+    def _poly_pierces(self, poly, sid, did, margin=4.0):
+        """Hits where `poly` passes through the interior of a box it isn't an
+        endpoint of. Shared by the auto-router and the save()-time linter so both
+        judge 'edge through a box' identically."""
+        def nests(P, Q):
+            return ((P.x <= Q.x and P.x2 >= Q.x2 and P.y <= Q.y and P.y2 >= Q.y2) or
+                    (Q.x <= P.x and Q.x2 >= P.x2 and Q.y <= P.y and Q.y2 >= P.y2))
+        boxes = list(self.anchors.items())
+        cw = max((B.w for _, B in boxes), default=1)
+        ch = max((B.h for _, B in boxes), default=1)
+        ends = [self.anchors[i] for i in (sid, did) if i in self.anchors]
+        tips = [poly[0], poly[-1]]
+        hits = []
+        for (x1, y1), (x2, y2) in zip(poly, poly[1:]):
+            steps = max(2, int(max(abs(x2 - x1), abs(y2 - y1)) / 6))
+            for k in range(1, steps):           # interior samples only
+                px = x1 + (x2 - x1) * k / steps
+                py = y1 + (y2 - y1) * k / steps
+                for bid, B in boxes:
+                    if bid in (sid, did):
+                        continue
+                    if B.w > 0.7 * cw and B.h > 0.7 * ch:   # skip big containers
+                        continue
+                    if any(nests(B, E) for E in ends):
+                        continue
+                    if any(B.x - margin < tx < B.x2 + margin and
+                           B.y - margin < ty < B.y2 + margin for tx, ty in tips):
+                        continue
+                    if (B.x + margin < px < B.x2 - margin and
+                            B.y + margin < py < B.y2 - margin):
+                        hits.append((bid, (round(px), round(py))))
+        return hits
 
     def chain(self, ids, labels=None, **kw):
         labels = labels or [None] * (len(ids) - 1)
@@ -294,10 +386,25 @@ class Diagram:
                 groups.append((tuple(round(v) for v in ends[i]), len(grp)))
         return groups
 
+    def check_edges_through_boxes(self, margin=4.0):
+        """Return [(box_id, near_pt)] where an edge passes THROUGH a box it isn't
+        connected to (the 'line disappears behind the box' defect). Reuses the same
+        _poly_pierces geometry the auto-router avoids, so a figure that renders clean
+        is clean by the identical rule the router routed to. Big containers (> 70% of
+        the canvas), parent/child nests, and boxes an endpoint lands in are exempt."""
+        hits, seen = [], set()
+        for poly, sid, did in (self.edge_paths or []):
+            for bid, pt in self._poly_pierces(poly, sid, did, margin):
+                if bid not in seen:
+                    hits.append((bid, pt))
+                    seen.add(bid)
+        return hits
+
     def warn_overlaps(self, on_overlap="warn"):
         hits = self.check()
         arrows = self.check_arrows()
-        if (hits or arrows) and on_overlap != "ignore":
+        thru = self.check_edges_through_boxes()
+        if (hits or arrows or thru) and on_overlap != "ignore":
             parts = []
             if hits:
                 parts += ["%d overlapping box(es):" % len(hits)] + [
@@ -305,12 +412,15 @@ class Diagram:
             if arrows:
                 parts += ["%d arrowhead pile-up(s) — route to distinct ports:" % len(arrows)] + [
                     "  %d arrows land at ~(%d,%d)" % (n, p[0], p[1]) for p, n in arrows]
+            if thru:
+                parts += ["%d edge(s) pass THROUGH a box — route around:" % len(thru)] + [
+                    "  through '%s' near (%d,%d)" % (b, p[0], p[1]) for b, p in thru]
             msg = "archscope: " + "\n".join(parts)
             if on_overlap == "raise":
                 raise ValueError(msg)
             import sys
             print(msg, file=sys.stderr)
-        return hits + arrows
+        return hits + arrows + thru
 
     # --- output ----------------------------------------------------------------
     def _title_block(self):

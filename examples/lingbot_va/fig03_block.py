@@ -76,10 +76,11 @@ expl = TextLabel("each token carries its own timestep — video, clean-history "
 expl.measure()
 d.place(expl, ab.x, ab.y2 + 12)
 
-# text input (left of cross-attn)
+# text input (left of cross-attn) — sits LEFT of the residual rail (x=X-86) so the
+# rail's vertical run never pierces it; the short hop to xattn simply crosses the rail.
 txt = IOLabel("text emb  (1, B·512, 3072)", id="txt", modality="text")
 xb = d.box("xattn")
-d.place(txt, X - 235, xb.cy - 11)
+d.place(txt, X - 285, xb.cy - 11)
 d.edge("txt.r", (xb.x, xb.cy), style_name="cond", color="#DB2777")
 
 leg = Swatches([("attention", "attention"), ("ffn", "MLP / FFN"),

@@ -23,7 +23,7 @@ KIND = {
     "io":        ("#F8FAFC", "#64748B", "#334155"),
     "op":        ("#FFFFFF", "#475569", "#334155"),
     "mask":      ("#CCFBF1", "#0D9488", "#134E4A"),
-    "head":      ("#E2E8F0", "#475569", "#1E293B"),
+    "head":      ("#E0E7FF", "#4F46E5", "#312E81"),   # indigo — distinct from grey model/io
     "model":     ("#F1F5F9", "#475569", "#0F172A"),
     "known":     ("#F0FDF4", "#16A34A", "#166534"),
 }

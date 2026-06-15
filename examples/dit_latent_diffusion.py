@@ -42,10 +42,19 @@ cond = Block("condition  c", kind="cond", sub="class / text / pose", id="c")
 ins = HStack([tstep, cond], gap=24)
 ins.measure()
 d.place(ins, d.box("patch").cx - ins.w / 2, d.box("xt").y + 120)
-# they don't flow into patchify; they drive every block's modulation
-d.edge("t", "dit.l@0.62", style_name="cond", b_side="b")
-d.edge("c", "dit.l@0.38", style_name="cond", b_side="b")
-d.note(d.box("t").x, d.box("t").y2 + 16,
+# they don't flow into patchify; they drive every block's modulation.
+# route conditioning up the LEFT channel into the DiT block — NOT straight up through
+# the noised-latent box (which would read as 't,c are tokens', the opposite of the note).
+# t (left box) exits left directly; c (right box) drops below the row first so its run
+# to the channel never crosses the t box.
+lx = min(d.box("xt").x, d.box("dit").x) - 54
+rail_y = max(d.box("t").y2, d.box("c").y2) + 18
+d.edge("t", "dit.l@0.62", a_side="l", b_side="l",
+       via=[(lx, d.box("t").cy), (lx, d.box("dit").cy + 12)], style_name="cond")
+d.edge("c", "dit.l@0.38", a_side="b", b_side="l",
+       via=[(d.box("c").cx, rail_y), (lx - 16, rail_y), (lx - 16, d.box("dit").cy - 12)],
+       style_name="cond")
+d.note(d.box("t").x, rail_y + 10,
        "t + c are SUMMED, drive adaLN in every block (they are not tokens)",
        size=style.T_SUB, color=style.FAINT, max_w=260)
 

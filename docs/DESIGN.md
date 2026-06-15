@@ -140,7 +140,19 @@ the lightweight wrappers that cut the render→eyeball-overlaps→nudge loop:
   inter-column magic numbers that drift into overlap on edits (graphviz `rank=same` /
   d2 `near`, as a ~15-line `place()` upgrade).
 - `d.check() -> [(a,b,frac)]` over all id'd boxes + `save(on_overlap="warn"|"raise")` —
-  the overlap linter is a machine assertion, not a human eyeballing the PNG.
+  the overlap linter is a machine assertion, not a human eyeballing the PNG. It reports
+  three defect classes: box overlaps (`check`), arrowhead pile-ups (`check_arrows`, two
+  heads landing within ~7px), and edges passing through a box (`check_edges_through_boxes`).
+- obstacle-aware auto-router: a plain `d.edge("a", "b.l@0.25")` first tries the straight
+  perpendicular path, and **if that would pierce another box it detours automatically** —
+  sweeping the bend, then re-picking the exit side of any bare-id endpoint (a pinned
+  `id.side@frac` port keeps its landing point). A default-clean route is returned
+  verbatim, so the common case never shifts. This is the "generate correctly the first
+  time" lever: the same geometry test (`_poly_pierces`) the router routes *away from* is
+  the one the linter flags, so what renders clean is clean by the identical rule. The
+  author declares intent (`a -> b`) and does not hand-route around obstacles.
+  Locked in by `tests/test_routing.py`. Limit: only boxes placed *before* the edge are
+  seen as obstacles; the save()-time linter is the backstop for the rest.
 - `d.auto_legend()` scans the kinds/modalities/edge-styles actually used; `Swatches`
   keys edge styles (short arrows) and op glyphs so every special symbol is in the key.
 

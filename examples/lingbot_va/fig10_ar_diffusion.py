@@ -84,15 +84,18 @@ d.chain(["noised", "stub", "vel", "clean"])
 d.note(z2cx - 150, DY + 8, "DIFFUSION within the chunk — flow-matching denoise:", size=style.T_SUB + 1,
        color=style.INK, weight="600")
 
-# magnifier: connect z2 cell to the diffusion IN, no whitespace canyon
+# magnifier: connect the z2 cell to the TOP of the diffusion stack (clean z2 — the
+# generated chunk IS the z2 cell). Must NOT plunge down to the bottom 'noised' box,
+# which would pierce the whole spine.
 nb = d.box("noised")
-d.edge((z2cx, SY + VS), (nb.cx, nb.y), style_name="faint", dash="3 3", a_side="b", b_side="t",
-       color="#B91C1C", label="zoom: how z2 is made")
+cleanb = d.box("clean")
+d.edge((z2cx, SY + VS), (cleanb.cx, cleanb.y), style_name="faint", dash="3 3",
+       a_side="b", b_side="t", color="#B91C1C", label="zoom: z2 is made by denoising (below)")
 
 # the xT denoise loop (distinct: green, back-edge on the left into noised's LEFT
 # side — NOT the top, which the zoom arrow already uses)
 vb = d.box("vel")
-xr = nb.x - 36
+xr = min(nb.x, vb.x) - 36          # left of BOTH boxes so it never pierces them
 d.edge((vb.x, vb.cy), (nb.x, nb.cy), a_side="l", b_side="l",
        via=[(xr, vb.cy), (xr, nb.cy)], color="#16A34A", width=1.6,
        label="x T: integrate s 0 -> 1", label_side="left")

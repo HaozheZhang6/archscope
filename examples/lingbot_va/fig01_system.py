@@ -30,7 +30,8 @@ enc = VStack([
           modality="action", min_w=190),
 ], gap=28)
 d.place(enc, 320, 138)
-d.edge("i_p", "e_t"); d.edge("i_o", "e_v"); d.edge("i_s", "e_a")
+# i_o enters e_v high-left; the closed-loop re-encode (below) enters low-left — distinct ports
+d.edge("i_p", "e_t"); d.edge("i_o", "e_v.l@0.32"); d.edge("i_s", "e_a")
 
 # ----- the AR world model core: two passes ①→② -------------------------------------
 core = GroupFrame(VStack([
@@ -43,9 +44,17 @@ core = GroupFrame(VStack([
 ], gap=16), title="autoregressive world model  ·  per chunk (K=4 frames)", title_pos="tag",
     dashed=False, stroke="#475569", tint="rgba(71,85,105,0.04)", id="core", pad=15)
 d.place(core, 600, 120)
-d.edge("e_t", "net.l@0.25", style_name="cond", color="#DB2777")
-d.edge("e_v", "net.l@0.5")
-d.edge("e_a", "net.l@0.78")
+# all three encoders feed the world model. Land them on the tall core FRAME's lower-left,
+# well separated — the short 'net' block alone can't hold 3 ports without a pile-up — and
+# route through the clear gap between columns so none crosses an encoder box. text is pink.
+gx = (d.box("e_v").x2 + d.box("core").x) / 2
+ct = d.box("core")
+d.edge("e_t", "core.l@0.55", a_side="r", b_side="l",
+       via=[(gx - 7, d.box("e_t").cy), (gx - 7, ct.y + 0.55 * ct.h)],
+       style_name="cond", color="#DB2777")
+d.edge("e_v", "core.l@0.72", a_side="r", b_side="l",
+       via=[(gx + 9, d.box("e_v").cy), (gx + 9, ct.y + 0.72 * ct.h)])
+d.edge("e_a", "core.l@0.9", a_side="r", b_side="l")
 # the ①→② numbered dependency (the crux): video pass feeds the action pass
 p1b, p2b = d.box("p1"), d.box("p2")
 d.edge((p1b.x, p1b.cy), (p2b.x, p2b.cy), a_side="l", b_side="l",
@@ -88,9 +97,10 @@ d.place(rob, d.box("o_a").x, roby)
 d.edge("o_a.b@0.5", "rob.t@0.5", b_side="t", style_name="main")
 ev = d.box("e_v")
 low = roby + rob.h + 26
-d.edge((d.box("rob").x, d.box("rob").cy), (ev.cx, ev.y2), a_side="l", b_side="b",
+lx = ev.x - 34          # up the clear channel LEFT of the encoder column (not through e_a)
+d.edge((d.box("rob").x, d.box("rob").cy), "e_v.l@0.72", a_side="l", b_side="l",
        via=[(d.box("rob").x - 30, d.box("rob").cy), (d.box("rob").x - 30, low),
-            (ev.cx, low)], style_name="cache", color="#B45309",
+            (lx, low), (lx, ev.y + 0.72 * ev.h)], style_name="cache", color="#B45309",
        label="closed loop: re-encode the real observation", label_at=0.5, label_dy=-2)
 
 leg = Swatches([("video", "video"), ("action", "action"), ("text", "text"),
