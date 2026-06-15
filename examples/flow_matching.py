@@ -55,7 +55,7 @@ p2 = GroupFrame(VStack([
 # ---------------- P3: sampling -------------------------------------------------------
 steps = HStack([
     IOLabel("ε", modality="none", id="s0"),
-    Block("v_θ(x, σ)", kind="model", id="net", min_w=110),
+    Block("vθ (x, σ)", kind="model", sub="velocity network", id="net", min_w=110),
     OpDot("+", id="step"),
     IOLabel("x₀ (generated)", modality="video", id="s1"),
 ], gap=34)
