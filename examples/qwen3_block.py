@@ -46,8 +46,10 @@ mlp_inner = Free([
     (gate, (LW - gate.w) / 2, down.h + 18 + mul.h + 16 + silu.h + 16),
     (up, LW + 16 + (LW - up.w) / 2, down.h + 18 + mul.h + 16 + (silu.h + 16 + gate.h) / 2 - up.h / 2),
 ], pad_r=0, pad_b=0)
+# neutral envelope tint (not green) so the coloured sub-boxes pop instead of blending
+# into a same-hue wash; the stroke colour still identifies the group.
 mlp_frame = GroupFrame(mlp_inner, title="SwiGLU MLP   (fused gate_up_proj · qwen3.py:100-111)",
-                       dashed=False, tint="rgba(34,197,94,0.04)", stroke="#16A34A",
+                       dashed=False, tint="rgba(148,163,184,0.06)", stroke="#16A34A",
                        pad=14, id="mlp")
 
 # ---------------- the layer ------------------------------------------------------------
@@ -57,7 +59,7 @@ inner = VStack([
     Block("RMSNorm", kind="norm", sub="post_attention_layernorm", src="qwen3.py:144", id="ln2"),
     OpDot("+", id="add1"),
     GroupFrame(attn_inner, title="self-attention", dashed=False,
-               tint="rgba(37,99,235,0.04)", stroke="#2563EB", pad=14, id="sa"),
+               tint="rgba(148,163,184,0.06)", stroke="#2563EB", pad=14, id="sa"),
     Block("RMSNorm", kind="norm", sub="input_layernorm", src="qwen3.py:143", id="ln1"),
 ], gap=18)
 card = GroupFrame(inner, dashed=False, tint="#FFFFFF", stroke="#94A3B8", pad=20)

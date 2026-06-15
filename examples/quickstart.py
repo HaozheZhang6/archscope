@@ -29,7 +29,7 @@ f = d.flow([
 # a residual rail on the left (tap the input, feed the add)
 inp = d.box("x_b_t_768")
 d.edge((inp.x, inp.cy), "add.l", via=[(inp.x - 80, inp.cy), (inp.x - 80, d.box("add").cy)],
-       style_name="residual", label="residual")
+       style_name="residual", label="residual", label_side="left", label_bg=True)
 
 # vector math, placed RELATIVE to the MLP box (no magic numbers)
 d.place(Formula(r"$y = x + \mathrm{MLP}(\mathrm{LN}(x))$", size=14), right_of="mlp", gap=40)

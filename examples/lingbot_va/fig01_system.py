@@ -35,9 +35,9 @@ d.edge("i_p", "e_t"); d.edge("i_o", "e_v.l@0.32"); d.edge("i_s", "e_a")
 
 # ----- the AR world model core: two passes ①→② -------------------------------------
 core = GroupFrame(VStack([
-    Block("② denoise ACTION chunk -> a_t", kind="model", modality="action",
+    Block("② then · denoise ACTION chunk -> a_t", kind="model", modality="action",
           sub="inverse dynamics: attends the just-predicted video", id="p2", min_w=300),
-    Block("① denoise next VIDEO chunk -> z_hat", kind="model", modality="video",
+    Block("① first · denoise next VIDEO chunk -> z_hat", kind="model", modality="video",
           sub="forward dynamics: flow matching, 25 steps", id="p1", min_w=300),
     Block("WanTransformer3DModel  ·  shared DiT", kind="model",
           sub="one network, both passes  (-> fig2/fig10)", id="net", min_w=300),

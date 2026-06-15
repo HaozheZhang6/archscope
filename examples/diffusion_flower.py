@@ -54,11 +54,9 @@ d.edge((lb.x2, TY + IM + 34), (fb.x, TY + IM + 34), color="#16A34A", width=1.6,
 BY = TY + IM + 110
 xt = RasterImage(F(4), 96, id="xt", rx=6, outline="#B91C1C")
 d.place(xt, 110, BY)
-d.note(d.box("xt").cx, BY - 26, "IN: noised x_t", size=style.T_SUB + 0.5, color=style.INK,
-       anchor="middle", weight="600")
-d.note(d.box("xt").cx, BY - 13, "= (1-sigma_t) x_0 + sigma_t . eps", size=style.T_TINY + 1,
-       color=style.FAINT, anchor="middle", mono=True)
-d.note(d.box("xt").cx, d.box("xt").y2 + 15, "+ timestep t   (sigma_t = 0.8)", size=style.T_SUB,
+d.note(d.box("xt").cx, BY - 20, "IN: noised x_t  (σ = 0.8)", size=style.T_SUB + 0.5,
+       color=style.INK, anchor="middle", weight="600")
+d.note(d.box("xt").cx, d.box("xt").y2 + 15, "+ timestep t", size=style.T_SUB,
        color=style.MUTED, anchor="middle")
 
 model = Block("denoiser  e_theta  (DiT / U-Net)", kind="model",
@@ -80,11 +78,9 @@ d.note(d.box("eps").cx, d.box("eps").y2 + 28, "the 3 targets: see prediction_tar
 
 xtm = RasterImage(F(3), 96, id="xtm", rx=6, outline="#16A34A")
 d.place(xtm, d.box("eps").x2 + 70, BY)
-d.edge("eps", "xtm", label="remove one step of noise")
-d.note(d.box("xtm").cx, BY - 26, "x_{t-1}  (less noise)", size=style.T_SUB + 0.5,
+d.edge("eps", "xtm", label="remove one step of noise", label_bg=True)
+d.note(d.box("xtm").cx, BY - 20, "OUT step: less-noised  (σ = 0.6)", size=style.T_SUB + 0.5,
        color="#166534", anchor="middle", weight="600")
-d.note(d.box("xtm").cx, BY - 13, "sigma_{t-1} = 0.6  <  sigma_t", size=style.T_TINY + 1,
-       color="#166534", anchor="middle", mono=True)
 upd = Formula(r"$x_{t-1}=x_t-(\sigma_t-\sigma_{t-1})\,\hat{\epsilon}_\theta(x_t,t)$", size=12)
 upd.measure()
 d.place(upd, d.box("xtm").cx - upd.w / 2, d.box("xtm").y2 + 14)
@@ -94,7 +90,8 @@ mb, xb = d.box("model"), d.box("xt")
 ly = BY + 96 + 50
 d.edge((d.box("xtm").cx, d.box("xtm").y2 + 30), (xb.cx, xb.y2),
        a_side="b", b_side="b", via=[(d.box("xtm").cx, ly), (xb.cx, ly)],
-       color="#16A34A", width=1.5, label="x T:  feed x_{t-1} back as the next x_t")
+       color="#16A34A", width=1.5, label="×T:  feed the output back as the next input",
+       label_bg=True)
 
 # contrast with AR
 d.note(110, ly + 40,
@@ -105,10 +102,12 @@ d.note(110, ly + 55,
        "T steps. Both are trained by regression to a known target (next token / the added noise).",
        size=style.T_SUB + 0.5, color=style.MUTED, max_w=820)
 
-leg = Swatches([(("#FFFFFF", "#16A34A"), "clean image x_0 / cleaner"),
-                (("#FFFFFF", "#B91C1C"), "noised x_t / pure noise"),
+leg = Swatches([(("#FFFFFF", "#16A34A"), "clean / cleaner image"),
+                (("#FFFFFF", "#B91C1C"), "noised / pure noise"),
                 (("#FFFFFF", "#7C3AED"), "predicted noise"),
-                ("model", "denoiser network")], max_w=620, id="leg")
+                ("model", "denoiser network"),
+                (("#64748B", None), "forward: add noise", "edge"),
+                (("#16A34A", None), "reverse: denoise / loop", "edge")], max_w=720, id="leg")
 d.place(leg, 80, 80)
 
 d.save(OUT / "diffusion_flower.svg")

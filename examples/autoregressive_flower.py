@@ -121,11 +121,14 @@ d.note(gx2, gy2 - 14, "the image so far", size=style.T_SUB, color="#B91C1C")
 d.note(gx2, gy2 + sw + 16, "each step fills one more patch", size=style.T_SUB,
        color=style.FAINT, max_w=160)
 
+# image-patch swatch is a WHITE bordered cell (an image frame), distinct from the
+# grey-FILLED model block next to it. Placed clear of the image column so the image's
+# own "a real photo" caption doesn't read as a legend entry.
 leg = Swatches([((TXT[0], TXT[1]), "text token"),
-                (("#E2E8F0", "#64748B"), "image patch token"),
+                (("#FFFFFF", "#64748B"), "image patch token"),
                 ("model", "AR transformer"),
                 (("#FFFFFF", "#B91C1C"), "predicted / new")], max_w=520, id="leg")
-d.place(leg, 60, 70)
+d.place(leg, 330, 72)
 
 d.save(OUT / "autoregressive_flower.svg")
 print("wrote", OUT / "autoregressive_flower.svg")
