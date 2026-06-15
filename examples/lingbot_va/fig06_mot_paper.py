@@ -12,11 +12,15 @@ d = Diagram(
 
 V_W, A_W = 250, 210
 
+# blocks are coloured by KIND (norm/linear/ffn/attention). The stream is carried by
+# column position + the "video/action-specific" sublabels + the token pills, so the
+# modality accent bar is dropped — it was unkeyed and duplicated column position, and
+# its blue/green collided in the legend with the attention/ffn fills.
 def vblock(label, sub=None, kind="norm", id=None):
-    return Block(label, kind=kind, sub=sub, id=id, min_w=V_W, modality="video")
+    return Block(label, kind=kind, sub=sub, id=id, min_w=V_W)
 
 def ablock(label, sub=None, kind="norm", id=None):
-    return Block(label, kind=kind, sub=sub, id=id, min_w=A_W, modality="action")
+    return Block(label, kind=kind, sub=sub, id=id, min_w=A_W)
 
 # --- lane stacks -------------------------------------------------------------------
 v_top = VStack([
@@ -90,9 +94,9 @@ d.place(a_bot, AXL + (max(a_top.w, a_bot.w) - a_bot.w) / 2, boty)
 # --- edges ---------------------------------------------------------------------------
 sq = d.box("seq")
 d.edge((sq.x + 17, sq.y2), "v_in.t", style_name="faint", color="#0284C7",
-       route="zv", frac=0.55)
-d.edge((sq.x + 160, sq.y2), "a_in.t", style_name="faint", color="#059669",
-       route="zv", frac=0.55)
+       route="zv", frac=0.55)          # under z₁ (a video token)
+d.edge((sq.x + 64, sq.y2), "a_in.t", style_name="faint", color="#059669",
+       route="zv", frac=0.55)          # under a₁ (an action token), not the gap by z₂
 d.note(sq.x2 + 16, sq.cy + 4, "route by modality", size=style.T_SUB,
        color=style.FAINT)
 
@@ -125,10 +129,10 @@ d.note(note_x, d.box("a_ln2").cy + 7, "stream in its 768-d space", size=style.T_
        color=style.FAINT)
 
 # --- right column: legend + repeat -------------------------------------------------
-leg = Swatches([("video", "video stream (d=3072)"),
-                ("action", "action stream (d=768)"),
-                ("attention", "shared attention"),
-                ("linear", "linear / projection"),
+# key the KINDS (the fills) only. The blue/green token pills self-label ("video
+# tokens" / "action tokens"), so a modality swatch is unneeded — and would duplicate
+# the attention-blue / ffn-green it sits next to.
+leg = Swatches([("attention", "shared attention"), ("linear", "linear / projection"),
                 ("ffn", "FFN"), ("norm", "norm")], max_w=210, id="leg")
 leg.measure()
 leg_x = note_x + 160

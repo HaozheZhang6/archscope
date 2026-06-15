@@ -96,8 +96,8 @@ heads = HStack([
 ], gap=40)
 heads.measure()
 d.place(heads, X - heads.w / 2, 250)
-d.edge("no.t@0.4", "ho.b@0.5", b_side="b", label="noisy z half")
-d.edge("no.t@0.6", "ha.b@0.5", b_side="b", label="noisy a half")
+d.edge("no.t@0.4", "ho.b@0.5", b_side="b", label="noisy z half", label_bg=True)
+d.edge("no.t@0.6", "ha.b@0.5", b_side="b", label="noisy a half", label_bg=True)
 
 # discarded clean+pad half as a greyed branch
 disc = Block("clean z, clean a, pad", kind="io", sub="discarded — prediction read only from the noisy half",
@@ -115,11 +115,15 @@ outs.measure()
 d.place(outs, X - outs.w / 2, 180)
 d.edge("ho", "vo"); d.edge("ha", "va")
 
-leg = Swatches([("video", "video"), ("action", "action"), ("text", "text"),
-                ("model", "DiT block"), ("cond", "conditioning"), ("head", "head"),
+# every fill/edge that appears is keyed, and each colour means one thing: the yellow
+# norm_out and teal mask were previously unkeyed; the duplicate pink "text" swatch is
+# dropped (the text-emb box self-labels, and the pink K/V tap is the text path).
+leg = Swatches([("video", "video"), ("action", "action"), ("model", "DiT block"),
+                ("norm", "normalization"), ("cond", "conditioning"),
+                ("mask", "attention mask"), ("head", "head"),
                 (("#E0F2FE", "#0284C7"), "hatched = noised", "hatch"),
-                ("main", "data flow", "edge"), ("cond", "conditioning tap", "edge"),
-                ("faint", "discarded", "edge")], max_w=720, id="leg")
+                ("main", "data flow", "edge"), ("cond", "text-cond tap", "edge"),
+                ("faint", "discarded", "edge")], max_w=620, id="leg")
 d.place(leg, X - 360, 130)
 
 d.save(OUT / "fig02_forward.svg")

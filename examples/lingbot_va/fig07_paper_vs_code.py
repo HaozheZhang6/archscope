@@ -13,7 +13,9 @@ d = Diagram(
 
 # ---------------- left: paper ----------------------------------------------------
 def pb(label, dim, mod, id, kind="linear"):
-    return Block(label, kind=kind, sub=dim, modality=mod, id=id, min_w=140)
+    # stream = column + the "video/action stream" headers + the dims; no modality bar
+    # (it duplicated those and its blue/green collided with the kind fills).
+    return Block(label, kind=kind, sub=dim, id=id, min_w=140)
 
 Y_QKV, Y_JA, Y_O, Y_FFN = 22, 90, 158, 226
 paper_inner = Free([
@@ -59,7 +61,7 @@ code_inner = Free([
               id="c_qkv", min_w=290),
         Block("Self-Attention", kind="attention",
               sub="FlexAttention: causal interleave mask", id="c_ja", min_w=290),
-        Block("Cross-Attn (text) · FFN · norms", kind="ffn",
+        Block("Cross-Attn (text) · FFN · norms", kind="model",
               sub="d = 3072 · shared by video & action tokens", id="c_f", min_w=290),
     ], gap=30), 0, 14),
     (TextLabel("one stream — video and action tokens flow through identical weights",
@@ -115,20 +117,22 @@ d.note(x_q, y0, "design question", size=style.T_SUB + 1, weight="600", color=sty
 d.note(x_p, y0, "paper", size=style.T_SUB + 1, weight="600", color=style.INK)
 d.note(x_c, y0, "released code", size=style.T_SUB + 1, weight="600", color=style.INK)
 d.doc.line("labels", x_q, y0 + 8, x_c + 240, y0 + 8, "#CBD5E1", 1.1)
+# green = has it / yes, red = lacks it / differs, neutral = a plain value (e.g. params)
+def verdict(s):
+    return ("#166534" if s.startswith("yes") else
+            "#9F1239" if s.startswith("no") else style.MUTED)
 for i, (q, p, c) in enumerate(rows):
     yy = y0 + 26 + i * 21
     d.note(x_q, yy, q, size=style.T_SUB + 1, color=style.MUTED)
-    d.note(x_p, yy, p, size=style.T_SUB + 1,
-           color="#166534" if p.startswith("yes") else "#9F1239")
-    d.note(x_c, yy, c, size=style.T_SUB + 1,
-           color="#166534" if c.startswith("yes") else "#9F1239")
+    d.note(x_p, yy, p, size=style.T_SUB + 1, color=verdict(p))
+    d.note(x_c, yy, c, size=style.T_SUB + 1, color=verdict(c))
 
 d.note(x_q, y0 + 26 + len(rows) * 21 + 12,
        "Fossil evidence in the release: _keep_in_fp32_modules still lists action_norm1/2/3, "
        "text_norm1/2/3, scale_shift_table_action — modules that do not exist in the shipped "
        "WanTransformerBlock (model.py:581-593). The released code matches the “Share Weights” "
        "variant from the paper's initialization ablation (paper Fig. 7), not the headline MoT.",
-       size=style.T_SUB + 1, color="#9F1239", max_w=900)
+       size=style.T_SUB + 1, color=style.MUTED, max_w=900)
 
 d.save(OUT / "fig07_paper_vs_code.svg")
 print("ok")
