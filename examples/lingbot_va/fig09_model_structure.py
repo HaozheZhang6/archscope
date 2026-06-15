@@ -17,29 +17,31 @@ d = Diagram(
 X = 360  # spine center
 
 # ----- the shared spine (bottom -> top), drawn ONCE --------------------------------
+# the I/O modules (emb / cond / heads) are identical in paper & code, so they are muted
+# to neutral 'io' grey and recede; the 30× DiT block — the ONLY real difference — keeps
+# a stronger fill and gets the red callout, so it reads as the focal point.
 spine = VStack([
     IOLabel("velocity v_z  ·  velocity v_a", id="out", modality="video"),
     Block("output heads:  proj_out (3072->192)  |  action_proj_out (3072->30)",
-          kind="head", sub="split by modality", id="heads", min_w=380),
-    Block("30 x  DiT block", kind="model",
+          kind="io", sub="split by modality", id="heads", min_w=380),
+    Block("30 x  DiT block", kind="attention",
           sub="self-attn · cross-attn(text) · FFN · per-token AdaLN", id="blk", min_w=380),
     Block("condition embedders:  condition_embedder  |  ..._action (deepcopy)",
-          kind="cond", sub="time+text, split by modality", id="cond", min_w=380),
+          kind="io", sub="time+text, split by modality", id="cond", min_w=380),
     Block("input embedders:  patch_embedding_mlp (192->3072)  |  action_embedder (30->3072)",
-          kind="linear", sub="split by modality", id="emb", min_w=380),
+          kind="io", sub="split by modality", id="emb", min_w=380),
     IOLabel("noised video latent  +  action tokens", id="in", modality="video", hatched=True),
 ], gap=20)
 d.place(spine, X - 190, 130)
 d.chain(["in", "emb", "cond", "blk", "heads", "out"])
 
 # ----- per-module paper|code annotations (right of the spine) ----------------------
-def same(mid, text):
+def same(mid):
     b = d.box(mid)
-    d.note(b.x2 + 26, b.cy + 3.5, "paper = code:  " + text, size=style.T_SUB,
-           color="#166534")
-same("emb", "both split by modality")
-same("cond", "both split by modality")
-same("heads", "both split by modality")
+    d.note(b.x2 + 26, b.cy + 3.5, "= in paper & code", size=style.T_SUB, color="#166534")
+same("emb")           # the I/O modules are identical in both; their sublabels already
+same("cond")          # say "split by modality", so this stays terse (no 3× verbatim).
+same("heads")
 
 # the block is THE difference — a highlighted callout
 bb = d.box("blk")
@@ -63,20 +65,23 @@ d.note(xq, y0, "question", size=style.T_SUB + 1, weight="600", color=style.INK)
 d.note(xp, y0, "paper §3.3", size=style.T_SUB + 1, weight="600", color=style.INK)
 d.note(xc, y0, "shipped code", size=style.T_SUB + 1, weight="600", color=style.INK)
 d.doc.line("labels", xq, y0 + 8, xc + 220, y0 + 8, "#CBD5E1", 1.1)
+# the table just lists the contrasting facts (neutral); the red is reserved for the
+# 'THE difference' callout, so the table isn't a wall of alarm-red on both columns.
 for i, (q, p, c) in enumerate(rows):
     yy = y0 + 26 + i * 20
     d.note(xq, yy, q, size=style.T_SUB + 1, color=style.MUTED)
-    d.note(xp, yy, p, size=style.T_SUB + 1, color="#9F1239")
-    d.note(xc, yy, c, size=style.T_SUB + 1, color="#9F1239")
+    d.note(xp, yy, p, size=style.T_SUB + 1, color="#334155")
+    d.note(xc, yy, c, size=style.T_SUB + 1, color="#334155")
 d.note(xq, y0 + 26 + len(rows) * 20 + 12,
        "Fossil: _keep_in_fp32_modules (model.py:581-593) still lists action_norm1/2/3, "
        "scale_shift_table_action — modules absent from the shipped block. The release matches "
        "the paper's own \"Share Weights\" ablation, not the headline dual-stream MoT.",
        size=style.T_SUB + 1, color="#9F1239", max_w=900)
 
-leg = Swatches([("video", "video"), ("action", "action"), ("model", "block"),
-                ("linear", "embed"), ("head", "head"), ("cond", "condition"),
-                (("#FEE2E2", "#DC2626"), "the difference"),
+leg = Swatches([("video", "video"), ("action", "action"),
+                ("attention", "30× DiT block (the difference)"),
+                ("io", "I/O modules (same in both)"),
+                (("#FEE2E2", "#DC2626"), "what differs"),
                 ("main", "data flow", "edge")], max_w=760, id="leg")
 d.place(leg, 60, 90)
 
