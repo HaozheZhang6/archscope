@@ -2,6 +2,7 @@
 import math
 
 from . import style
+from .text import measure
 
 
 def _unit(ax, ay, bx, by):
@@ -71,7 +72,7 @@ def draw_edge(doc, a, b, *, style_name="main", color=None, width=None,
               route="auto", via=None, frac=0.5, arrow=True, label=None,
               label_side="right", label_at=0.5, label_dx=0, label_dy=0,
               dash="unset", r=7, label_size=None, halo=True,
-              label_anchor=None):
+              label_anchor=None, label_bg=False):
     st = style.EDGE[style_name]
     color = color or st["stroke"]
     width = width or st["width"]
@@ -93,10 +94,16 @@ def draw_edge(doc, a, b, *, style_name="main", color=None, width=None,
         if vertical:
             anchor = label_anchor or ("start" if label_side == "right" else "end")
             off = 7 if label_side == "right" else -7
-            doc.text("labels", mx + off + label_dx, my + size * 0.35 + label_dy,
-                     label, size, style.MUTED, anchor=anchor, mono=True,
-                     halo=halo)
+            tx, ty, ta = mx + off + label_dx, my + size * 0.35 + label_dy, anchor
         else:
-            doc.text("labels", mx + label_dx, my - 6 + label_dy, label, size,
-                     style.MUTED, anchor=label_anchor or "middle", mono=True,
-                     halo=halo)
+            tx, ty, ta = mx + label_dx, my - 6 + label_dy, label_anchor or "middle"
+        if label_bg:
+            # an OPAQUE box behind the label — the per-glyph halo can't cover the
+            # spaces between words, so a passing dashed line still reads as a
+            # strike-through ("x = x" -> "x-=-x"). The box knocks the whole strip out.
+            lw = measure(label, size, mono=True)[0]
+            lx = {"start": tx, "middle": tx - lw / 2, "end": tx - lw}[ta]
+            doc.rect("labels", lx - 4, ty - size, lw + 8, size + 6,
+                     "#FFFFFF", None, 0, rx=3)
+        doc.text("labels", tx, ty, label, size, style.MUTED, anchor=ta, mono=True,
+                 halo=halo)

@@ -12,9 +12,9 @@ OUT = Path(__file__).resolve().parents[1] / "out" / "examples"
 
 d = Diagram(
     title="Pre-LN Transformer block (GPT-2 style)",
-    subtitle="One of 12 identical layers. Repeated blocks render as a card stack — "
-             "the occluded copies are dashed ghosts; edges attach to the stack "
-             "envelope, never crossing them.")
+    subtitle="Each sublayer is a residual branch x + f(LayerNorm(x)): the norm sits "
+             "INSIDE the branch so the skip path stays an unnormalized identity. "
+             "Attention then MLP, stacked ×12 identical layers.")
 
 inner = VStack([
     OpDot("+", id="add2"),
@@ -56,9 +56,12 @@ d.place(chip, d.box("layer").x - chip.w - 56, ab.cy - chip.h / 2)
 d.edge("kc.r", (d.box("layer").x, ab.cy), style_name="faint", arrow=False,
        dash="3 3")
 
+# the green-dashed KnownChip self-labels on the figure, so it needs no legend swatch
+# (which would also collide with FFN green). Key the two edge weights instead.
 leg = Swatches([("attention", "attention"), ("ffn", "MLP / FFN"),
                 ("norm", "normalization"), ("io", "tensor"),
-                ("known", "known concept", "dash")], max_w=240, id="leg")
+                ("main", "data flow", "edge"), ("residual", "residual", "edge")],
+               max_w=240, id="leg")
 d.place(leg, d.box("kc").x, 70)
 
 d.save(OUT / "transformer_block.svg")

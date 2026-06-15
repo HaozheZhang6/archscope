@@ -5,6 +5,7 @@ text with the Helvetica stack: DejaVu is slightly wider, so boxes never
 underflow. Formulas are converted to pure <path> outlines (Computer Modern),
 so exported SVGs are self-contained and survive any converter.
 """
+import re
 from functools import lru_cache
 
 import matplotlib
@@ -14,11 +15,28 @@ from matplotlib.textpath import TextPath
 
 matplotlib.rcParams["mathtext.fontset"] = "cm"
 
+# Plain-text labels should read like a typeset paper, not like code. These are the
+# substitutions a reviewer's eye catches as "auto-generated": ASCII arrows and a
+# letter-x used for multiplication. → ← ≤ ≥ × are all in DejaVu (so they measure)
+# and render under resvg (figs 3/4/5 already use them), so this is glyph-safe.
+# Applied at BOTH measure() and emit() so width and rendering always agree.
+_GLYPHS = [("<=", "≤"), (">=", "≥"), ("->", "→"), ("<-", "←")]
+_XMUL = re.compile(r"(?<=\s)x(?=\d)")          # " x30" repeat marker -> " ×30"
+
+
+def normalize_glyphs(s: str) -> str:
+    if not s:
+        return s
+    for a, b in _GLYPHS:
+        s = s.replace(a, b)
+    return _XMUL.sub("×", s)
+
 
 @lru_cache(maxsize=4096)
 def measure(s: str, size: float = 12, weight: str = "normal",
             mono: bool = False) -> tuple[float, float]:
     """Approximate rendered width/height of a single-line string."""
+    s = normalize_glyphs(s)
     if not s:
         return (0.0, size * 1.25)
     fp = FontProperties(

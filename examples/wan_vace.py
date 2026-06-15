@@ -25,7 +25,7 @@ d = Diagram(
 MX = 150
 main = VStack([
     IOLabel("denoised video latent", id="m_out", modality="video"),
-    RepeatStack(Block("DiT block", kind="model",
+    RepeatStack(Block("DiT block", kind="frozen",
                       sub="self-attn · cross-attn(text) · FFN · AdaLN(t)", id="m_blk", min_w=240),
                 times="×30", id="m_dit"),
     IOLabel("noised video latent  (16, F, h, w)", id="m_in", modality="video", hatched=True),
@@ -38,11 +38,11 @@ d.note(MX, 92, "main Wan DiT — FROZEN", size=style.T_SUB + 1, color=style.INK,
 VX = 620
 vace = VStack([
     IOLabel("15 hints  ->  injected into the main DiT", id="v_out", modality="state"),
-    RepeatStack(Block("VaceWanAttentionBlock", kind="model",
+    RepeatStack(Block("VaceWanAttentionBlock", kind="trainable",
                       sub="= DiT block + before_proj (block0) + after_proj (zero-conv)",
                       src="wan_video_vace.py:5-24", id="v_blk", min_w=300),
                 times="×15", id="v_dit"),
-    Block("vace_patch_embedding", kind="linear", sub="Conv3d 96 -> 1536, kernel (1,2,2)",
+    Block("vace_patch_embedding", kind="trainable", sub="Conv3d 96 -> 1536, kernel (1,2,2)",
           src="wan_video_vace.py:51", id="v_patch", min_w=300),
     IOLabel("vace_context  (96, F, h, w)", id="v_in", modality="state"),
 ], gap=22)
@@ -51,12 +51,14 @@ d.chain(["v_in", "v_patch", "v_dit", "v_out"])
 d.note(VX, 92, "VACE branch — TRAINABLE  (15 blocks at layers 0,2,…,28)",
        size=style.T_SUB + 1, color="#B45309", weight="600")
 
-# the hint injection arrow VACE -> main (upper)
-d.edge("v_dit.l@0.30", "m_dit.r@0.30", style_name="cache", color="#B45309", width=1.8,
-       label="x = x + hint · vace_scale", label_side="right")
+# the hint injection arrow VACE -> main (upper); opaque label box so the ×30 ghost
+# frame's dashes don't strike through "x = x"
+d.edge("v_dit.l@0.42", "m_dit.r@0.42", style_name="cache", color="#B45309", width=1.8,
+       label="x = x + hint · vace_scale", label_side="right", label_bg=True)
 # block-0 injects the main hidden state (lower, clearly separated)
-d.edge("m_dit.r@0.78", "v_dit.l@0.80", style_name="faint", dash="4 3",
-       color="#94A3B8", label="block0: c = before_proj(c) + x", label_side="left")
+d.edge("m_dit.r@0.80", "v_dit.l@0.82", style_name="faint", dash="4 3",
+       color="#94A3B8", label="block0: c = before_proj(c) + x", label_side="left",
+       label_bg=True)
 
 # ============ control-signal prep (bottom) ============
 prep = VStack([
@@ -88,10 +90,10 @@ d.note(ix, iy + 2 * (CW + 2) + 14,
        "and its embeddings are trained; the main DiT stays frozen.", size=style.T_SUB,
        color=style.FAINT, max_w=560)
 
-leg = Swatches([("video", "main video latent"), ("state", "control / hints"),
-                ("model", "DiT block"), ("linear", "patch embed"),
-                ("cond", "control composition"), (("#FEF3C7", "#B45309"), "VACE layer")],
-               max_w=640, id="leg")
+leg = Swatches([("video", "main video latent"), ("frozen", "frozen main DiT  ×30"),
+                ("trainable", "trainable VACE branch  ×15  (hints, patch-embed, map)"),
+                ("cond", "control signal"), ("cache", "hint injection", "edge")],
+               max_w=720, id="leg")
 d.place(leg, MX, 70)
 
 d.save(OUT / "wan_vace.svg")

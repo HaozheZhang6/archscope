@@ -134,9 +134,9 @@ class GroupFrame(Element):
 
     def __init__(self, child, title=None, id=None, pad=16, dashed=True,
                  tint=None, stroke=None, title_color=None, pad_top=None,
-                 title_pos="inline"):
+                 title_pos="inline", min_w=0):
         self.child, self.title, self.id = child, title, id
-        self.pad, self.dashed = pad, dashed
+        self.pad, self.dashed, self.min_w = pad, dashed, min_w
         self.tint = tint if tint is not None else "rgba(148,163,184,0.055)"
         self.stroke = stroke or style.FAINT
         self.title_color = title_color or style.MUTED
@@ -149,7 +149,7 @@ class GroupFrame(Element):
     def measure(self):
         cw, ch = self.child.measure()
         self.th = 21 if (self.title and self.title_pos == "inline") else 0
-        self.w = cw + 2 * self.pad
+        self.w = max(cw + 2 * self.pad, self.min_w)   # min_w snaps panels to a grid
         self.h = ch + 2 * self.pad + self.th
         if self.pad_top is not None:
             self.h = ch + self.pad + self.pad_top + self.th

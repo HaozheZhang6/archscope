@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 from . import style
-from .text import measure
+from .text import measure, normalize_glyphs
 
 
 def _esc(s: str) -> str:
@@ -103,6 +103,7 @@ class SvgDoc:
     def text(self, layer, x, y, s, size=12, color=style.INK, weight="normal",
              anchor="middle", mono=False, halo=False, opacity=None):
         """(x, y) is the text anchor point at the BASELINE."""
+        s = normalize_glyphs(s)
         fam = style.FONT_MONO if mono else style.FONT_SANS
         a = [f'x="{x:.1f}" y="{y:.1f}"',
              f'font-family="{fam}" font-size="{size}px" fill="{color}"',

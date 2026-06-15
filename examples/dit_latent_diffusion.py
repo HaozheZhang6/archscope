@@ -65,18 +65,19 @@ loss = Formula(r"$\mathcal{L}=\mathbb{E}_{x_0,\epsilon,t}\,\Vert \epsilon_\theta
                size=13)
 loss.measure()
 d.place(loss, d.box("head").x2 + 30, d.box("head").cy - loss.h / 2)
-d.note(d.box("dit").x2 + 30, d.box("dit").cy - 6,
-       "x_t = sqrt(a_t) x_0 + sqrt(1-a_t) eps", size=style.T_SUB, color=style.MUTED,
-       mono=True)
-d.note(d.box("dit").x2 + 30, d.box("dit").cy + 8,
-       "the net sees x_t, must recover eps", size=style.T_SUB, color=style.FAINT)
+fwd = Formula(r"$x_t=\sqrt{\bar\alpha_t}\,x_0+\sqrt{1-\bar\alpha_t}\,\epsilon$", size=11)
+fwd.measure()
+d.place(fwd, d.box("dit").x2 + 30, d.box("dit").cy - fwd.h / 2 - 7)
+d.note(d.box("dit").x2 + 30, d.box("dit").cy + 16,
+       "the net sees x_t, predicts ε", size=style.T_SUB, color=style.FAINT)
 
-# the sampling loop: subtract predicted noise, repeat
+# the sampling loop: subtract predicted noise, repeat. Teal (a feedback loop), NOT
+# green — green is FFN in this figure (the right block's MLP).
 nb, hb = d.box("xt"), d.box("out")
 xr = nb.x - 40
 d.edge((hb.x, hb.cy), (nb.x, nb.cy), a_side="l", b_side="l",
-       via=[(xr, hb.cy), (xr, nb.cy)], color="#16A34A", width=1.5,
-       label="x T  (x_t -> x_{t-1})", label_side="left")
+       via=[(xr, hb.cy), (xr, nb.cy)], color="#0D9488", width=1.5,
+       label="×T sampling steps", label_side="left", label_bg=True)
 
 # ============ RIGHT: the adaLN-Zero block detail ============
 BX = d.box("out").x2 + 230
@@ -118,9 +119,11 @@ d.note(d.box("b_mlp").x, d.box("b_mlp").y2 + 14,
        max_w=250)
 
 leg = Swatches([("video", "latent / output"), ("model", "DiT"), ("attention", "attention"),
-                ("ffn", "FFN"), ("norm", "norm"), ("cond", "conditioning / modulation"),
-                ("head", "output head"),
-                (("#E0F2FE", "#0284C7"), "hatched = noised", "hatch")], max_w=620, id="leg")
+                ("ffn", "FFN"), ("norm", "norm"), ("linear", "patchify / linear"),
+                ("cond", "conditioning / modulation"), ("head", "output head"),
+                ("op", "add (residual)", "glyph:+"), ("op", "gate  α·", "glyph:o"),
+                (("#0D9488", "5 3"), "sampling loop ×T", "edge"),
+                (("#E0F2FE", "#0284C7"), "hatched = noised", "hatch")], max_w=760, id="leg")
 d.place(leg, X - 40, max(d.box("t").y2, d.box("c").y2) + 44)
 
 d.save(OUT / "dit_latent_diffusion.svg")

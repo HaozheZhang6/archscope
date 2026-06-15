@@ -22,7 +22,7 @@ p1 = GroupFrame(VStack([
               "x⁽ˢ⁾ = (1−s)ε + s·x₁, target x₁ − ε. Same objective, opposite sign.",
               size=style.T_SUB + 0.5, color=style.FAINT, max_w=P_W - 60),
 ], gap=12), title="1 · Flow-matching objective (both modalities)", dashed=False,
-    tint="#FFFFFF", stroke="#CBD5E1")
+    tint="#FFFFFF", stroke="#CBD5E1", min_w=P_W)
 
 # ---------- P2: per-frame timesteps -------------------------------------------------
 p2 = GroupFrame(VStack([
@@ -43,7 +43,7 @@ p2 = GroupFrame(VStack([
               "mid-σ Gaussian bell (scheduler.py:56-73).",
               size=style.T_SUB + 0.5, color=style.FAINT, max_w=P_W - 60),
 ], gap=12), title="2 · Independent per-frame timesteps", dashed=False,
-    tint="#FFFFFF", stroke="#CBD5E1")
+    tint="#FFFFFF", stroke="#CBD5E1", min_w=P_W)
 
 # ---------- P3: teacher forcing + noisy history -------------------------------------
 p3 = GroupFrame(VStack([
@@ -66,7 +66,7 @@ p3 = GroupFrame(VStack([
               "Action history is never noised (train.py:236).",
               size=style.T_SUB + 0.5, color=style.FAINT, max_w=P_W - 60),
 ], gap=12), title="3 · Teacher forcing + noisy-history augmentation", dashed=False,
-    tint="#FFFFFF", stroke="#CBD5E1")
+    tint="#FFFFFF", stroke="#CBD5E1", min_w=P_W)
 
 # ---------- P4: losses ----------------------------------------------------------------
 p4 = GroupFrame(VStack([
@@ -79,12 +79,12 @@ p4 = GroupFrame(VStack([
               "are re-rolled EVERY step, rebuilding the mask (train.py:245-247) — the model "
               "must work at any chunking/context length.",
               size=style.T_SUB + 0.5, color=style.FAINT, max_w=P_W - 60),
-    TextLabel("paper adds, in post-training only, an FDM loss: re-imagine z_{t+1} from real "
-              "feedback z_t and the executing action — used to ground asynchronous inference "
+    TextLabel("paper adds, in post-training only, an FDM loss: re-imagine the next latent from "
+              "real feedback and the executing action — used to ground asynchronous inference "
               "(paper Eq. 13).",
               size=style.T_SUB + 0.5, color=style.FAINT, max_w=P_W - 60),
 ], gap=12), title="4 · Losses + structural augmentation", dashed=False,
-    tint="#FFFFFF", stroke="#CBD5E1")
+    tint="#FFFFFF", stroke="#CBD5E1", min_w=P_W)
 
 for p in (p1, p2, p3, p4):
     p.pad = 18

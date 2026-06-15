@@ -26,6 +26,10 @@ KIND = {
     "head":      ("#E0E7FF", "#4F46E5", "#312E81"),   # indigo — distinct from grey model/io
     "model":     ("#F1F5F9", "#475569", "#0F172A"),
     "known":     ("#F0FDF4", "#16A34A", "#166534"),
+    # train-state: frozen recedes (cool grey), trainable pops (amber). Lets a figure
+    # show "these weights are tuned, those are not" in the fill, not just a caption.
+    "frozen":    ("#F1F5F9", "#94A3B8", "#475569"),
+    "trainable": ("#FEF3C7", "#D97706", "#92400E"),
 }
 
 KIND_NAMES = {
@@ -39,6 +43,8 @@ KIND_NAMES = {
     "mask": "Masking / Routing",
     "head": "Output head",
     "known": "Known concept (collapsed)",
+    "frozen": "Frozen (not trained)",
+    "trainable": "Trainable",
 }
 
 # modality -> (fill, stroke, text); used for token cells, lane tints, accents

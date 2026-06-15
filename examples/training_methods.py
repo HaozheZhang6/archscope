@@ -12,9 +12,9 @@ OUT = Path(__file__).resolve().parents[1] / "out" / "examples"
 
 d = Diagram(
     title="Training methods as storyboards",
-    subtitle="The genre almost no tool covers: what the model reads, what it predicts, "
-             "what attention is allowed — mask grids are generated from the rule, "
-             "never hand-drawn.")
+    subtitle="Two objectives on the same sentence. GPT predicts the next token under a "
+             "causal mask (a position sees only the past); BERT masks 15% of tokens and "
+             "predicts them from the whole bidirectional context.")
 
 toks = ["the", "cat", "sat", "on", "the", "mat"]
 
@@ -40,20 +40,26 @@ gpt = GroupFrame(VStack([
 
 # ---------------- BERT: masked LM ----------------------------------------------------
 masked = {1, 4}
+# bidirectional: every cell is allowed (mirror of the causal triangle, computed the
+# same way) — also balances the two panels to equal height.
+bidir = MaskGrid(toks, toks, [["a" for _ in range(6)] for _ in range(6)],
+                 colors={"a": ("#FDE68A", "visible")}, cell=19, id="bm",
+                 q_title="query", k_title="key / value")
 bert = GroupFrame(VStack([
-    TextLabel("input — 15% of tokens replaced by [MASK]:",
+    TextLabel("input — 15% of tokens replaced by [M] = [MASK]:",
               size=style.T_SUB + 1, color=style.MUTED, anchor="start"),
     TokenRow([dict(label="[M]" if i in masked else t,
                    modality="none" if i in masked else "video",
                    hatch=i in masked, bold_border=i in masked, w=44)
               for i, t in enumerate(toks)], cell_h=24),
-    TextLabel("bidirectional attention — every token sees every token; "
-              "loss is computed ONLY at the masked positions:",
-              size=style.T_SUB + 1, color=style.MUTED, max_w=300, anchor="start"),
     TokenRow([dict(label=toks[i] if i in masked else "·",
                    modality="action" if i in masked else "none",
                    sub="predict" if i in masked else None, w=44)
               for i in range(6)], cell_h=24),
+    TextLabel("bidirectional attention — every token sees every token (loss only at "
+              "the masked positions):",
+              size=style.T_SUB + 1, color=style.MUTED, max_w=300, anchor="start"),
+    bidir,
     Formula(r"$\mathcal{L}=-\sum_{i\in M} \log p_\theta(x_i\mid x_{\setminus M})$",
             size=12.5),
 ], gap=12), title="BERT — masked language modeling", dashed=False,
