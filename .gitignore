@@ -3,3 +3,6 @@ __pycache__/
 *.egg-info/
 .DS_Store
 *.pyc
+
+# CI workflow held back until the push PAT has the `workflow` scope (kept local)
+.github/workflows/examples.yml
